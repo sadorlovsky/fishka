@@ -1,6 +1,8 @@
 import { type ReactNode, useCallback, useEffect } from "react";
 import "./GameSettings.css";
 import { getRecommendedSettings } from "@/shared/game-settings";
+import type { CrocodileConfig } from "@/shared/types/crocodile";
+import { DEFAULT_CROCODILE_CONFIG } from "@/shared/types/crocodile";
 import type { RoomSettings } from "@/shared/types/room";
 import type { WordGuessConfig } from "@/shared/types/word-guess";
 import { DEFAULT_WORD_GUESS_CONFIG } from "@/shared/types/word-guess";
@@ -141,6 +143,97 @@ function WordGuessSettings({
 	);
 }
 
+function CrocodileSettings({
+	isHost,
+	playerCount,
+	onUpdate,
+	gameConfig,
+	children,
+}: {
+	isHost: boolean;
+	playerCount: number;
+	onUpdate: (settings: Partial<RoomSettings>) => void;
+	gameConfig: Record<string, unknown> | undefined;
+	children?: ReactNode;
+}) {
+	const config = {
+		...DEFAULT_CROCODILE_CONFIG,
+		...gameConfig,
+	} as CrocodileConfig;
+
+	const updateConfig = useCallback(
+		(patch: Partial<CrocodileConfig>) => {
+			onUpdate({
+				gameConfig: { ...config, ...patch },
+			});
+		},
+		[onUpdate, config],
+	);
+
+	const cycles = Math.max(1, Math.min(5, Math.round(8 / playerCount)));
+	const totalRounds = cycles * playerCount;
+	const totalMinutes = Math.round((totalRounds * config.roundTimeSeconds) / 60);
+
+	// Auto-apply recommended cycles
+	useEffect(() => {
+		if (isHost && config.cycles !== cycles) {
+			updateConfig({ cycles });
+		}
+	}, [isHost, config.cycles, cycles, updateConfig]);
+
+	if (!isHost) {
+		return (
+			<div className="game-settings">
+				<p className="settings-summary">
+					Режим: Жесты · Слова: {DIFFICULTY_LABELS[String(config.difficulty)]}
+				</p>
+				<p className="settings-summary">
+					{plural(config.roundTimeSeconds, "секунда", "секунды", "секунд")} на раунд ·{" "}
+					{plural(totalRounds, "раунд", "раунда", "раундов")} · ~
+					{plural(totalMinutes, "минута", "минуты", "минут")}
+				</p>
+				{children}
+			</div>
+		);
+	}
+
+	return (
+		<div className="game-settings">
+			<h3 className="settings-title">Настройки игры</h3>
+
+			<div className="settings-group">
+				<span className="settings-label">Сложность слов</span>
+				<div className="settings-options">
+					{(
+						[
+							{ value: "all" as const, label: "Любые" },
+							{ value: 1 as const, label: "Лёгкие" },
+							{ value: 2 as const, label: "Средние" },
+							{ value: 3 as const, label: "Сложные" },
+						] as const
+					).map(({ value, label }) => (
+						<button
+							key={String(value)}
+							className={`settings-option${config.difficulty === value ? " settings-option--active" : ""}`}
+							onClick={() => updateConfig({ difficulty: value })}
+						>
+							{label}
+						</button>
+					))}
+				</div>
+			</div>
+
+			<p className="settings-summary">
+				{plural(config.roundTimeSeconds, "секунда", "секунды", "секунд")} на раунд ·{" "}
+				{plural(totalRounds, "раунд", "раунда", "раундов")} · ~
+				{plural(totalMinutes, "минута", "минуты", "минут")}
+			</p>
+
+			{children}
+		</div>
+	);
+}
+
 export function GameSettings({
 	settings,
 	isHost,
@@ -150,6 +243,19 @@ export function GameSettings({
 }: GameSettingsProps) {
 	if (settings.gameId === "tapeworm") {
 		return <TapewormSettings>{children}</TapewormSettings>;
+	}
+
+	if (settings.gameId === "crocodile") {
+		return (
+			<CrocodileSettings
+				isHost={isHost}
+				playerCount={playerCount}
+				onUpdate={onUpdate}
+				gameConfig={settings.gameConfig}
+			>
+				{children}
+			</CrocodileSettings>
+		);
 	}
 
 	return (

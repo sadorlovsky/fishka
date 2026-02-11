@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { PlayerInfo } from "@/shared/types/room";
 import { Avatar } from "../components/Avatar";
 import { useConnection } from "../contexts/ConnectionContext";
+import { CrocodileGame } from "../games/crocodile/CrocodileGame";
 import { TapewormGame } from "../games/tapeworm/TapewormGame";
 import { WordGuessGame } from "../games/word-guess/WordGuessGame";
 import "./GameScreen.css";
@@ -85,6 +86,8 @@ export function GameScreen() {
 				<WordGuessGame />
 			) : room.settings.gameId === "tapeworm" ? (
 				<TapewormGame />
+			) : room.settings.gameId === "crocodile" ? (
+				<CrocodileGame />
 			) : (
 				<p className="status-text">Неизвестная игра: {room.settings.gameId}</p>
 			)}

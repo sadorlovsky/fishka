@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { getRecommendedSettings } from "@/shared/game-settings";
 import { GAME_META } from "@/shared/games";
+import { DEFAULT_CROCODILE_CONFIG } from "@/shared/types/crocodile";
 import type { RoomSettings } from "@/shared/types/room";
 import { DEFAULT_TAPEWORM_CONFIG } from "@/shared/types/tapeworm";
 import type { WordGuessConfig } from "@/shared/types/word-guess";
@@ -31,15 +32,19 @@ export function LobbyScreen() {
 	const allConnected = room.players.every((p) => p.isConnected);
 	const canStart = isHost && room.players.length >= 2 && allConnected;
 	const isTapeworm = room.settings.gameId === "tapeworm";
+	const isCrocodile = room.settings.gameId === "crocodile";
+	const isWordGuess = !isTapeworm && !isCrocodile;
 
 	const config = isTapeworm
 		? { ...DEFAULT_TAPEWORM_CONFIG, ...room.settings.gameConfig }
-		: ({
-				...DEFAULT_WORD_GUESS_CONFIG,
-				...room.settings.gameConfig,
-			} as WordGuessConfig);
+		: isCrocodile
+			? { ...DEFAULT_CROCODILE_CONFIG, ...room.settings.gameConfig }
+			: ({
+					...DEFAULT_WORD_GUESS_CONFIG,
+					...room.settings.gameConfig,
+				} as WordGuessConfig);
 
-	const isTeamsMode = !isTapeworm && (config as WordGuessConfig).mode === "teams";
+	const isTeamsMode = isWordGuess && (config as WordGuessConfig).mode === "teams";
 
 	// Check teams validity for start (word-guess only)
 	const teams = (
@@ -66,7 +71,7 @@ export function LobbyScreen() {
 	};
 
 	const handleSettingsChange = (settings: Partial<RoomSettings>) => {
-		if (isTapeworm) {
+		if (isTapeworm || isCrocodile) {
 			send({ type: "updateSettings", settings });
 			return;
 		}
@@ -94,7 +99,7 @@ export function LobbyScreen() {
 		});
 	};
 
-	const rosterMode = isTapeworm ? "ffa" : (config as WordGuessConfig).mode;
+	const rosterMode = isWordGuess ? (config as WordGuessConfig).mode : "ffa";
 
 	return (
 		<div className="screen">

@@ -60,6 +60,20 @@ function sanitizeGameConfig(
 		if ("handSize" in config) {
 			sanitized.handSize = clamp(config.handSize, 3, 8, 5);
 		}
+	} else if (gameId === "crocodile") {
+		if ("roundTimeSeconds" in config) {
+			sanitized.roundTimeSeconds = clamp(config.roundTimeSeconds, 30, 180, 60);
+		}
+		if ("cycles" in config) {
+			sanitized.cycles = clamp(config.cycles, 1, 5, 1);
+		}
+		if ("wordLanguage" in config) {
+			sanitized.wordLanguage = config.wordLanguage === "en" ? "en" : "ru";
+		}
+		if ("difficulty" in config) {
+			const d = config.difficulty;
+			sanitized.difficulty = d === 1 || d === 2 || d === 3 ? d : "all";
+		}
 	} else {
 		// Unknown game — pass through as-is (plugin will merge with defaults)
 		return config;

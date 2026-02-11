@@ -1,4 +1,5 @@
 import index from "./index.html";
+import { crocodilePlugin } from "./server/games/plugins/crocodile/plugin";
 import { tapewormPlugin } from "./server/games/plugins/tapeworm/plugin";
 import { wordGuessPlugin } from "./server/games/plugins/word-guess/plugin";
 import { seedWords } from "./server/games/plugins/word-guess/words";
@@ -14,6 +15,7 @@ seedWords();
 // Register game plugins
 registerPlugin(wordGuessPlugin);
 registerPlugin(tapewormPlugin);
+registerPlugin(crocodilePlugin);
 
 // Start room cleanup, player sweep, and rate limit cleanup
 import { playerManager } from "./server/rooms/player-manager";

@@ -286,6 +286,55 @@ describe("RoomManager", () => {
 			});
 			expect(room.settings.gameConfig.handSize).toBe(8);
 		});
+
+		test("sanitizes crocodile gameConfig: clamps roundTimeSeconds", () => {
+			const room = roomManager.create(host.id, { gameId: "crocodile" });
+			roomManager.updateSettings(room.code, host.id, {
+				gameConfig: { roundTimeSeconds: 999 },
+			});
+			expect(room.settings.gameConfig.roundTimeSeconds).toBe(180);
+		});
+
+		test("sanitizes crocodile gameConfig: clamps roundTimeSeconds min", () => {
+			const room = roomManager.create(host.id, { gameId: "crocodile" });
+			roomManager.updateSettings(room.code, host.id, {
+				gameConfig: { roundTimeSeconds: 5 },
+			});
+			expect(room.settings.gameConfig.roundTimeSeconds).toBe(30);
+		});
+
+		test("sanitizes crocodile gameConfig: clamps cycles", () => {
+			const room = roomManager.create(host.id, { gameId: "crocodile" });
+			roomManager.updateSettings(room.code, host.id, {
+				gameConfig: { cycles: 99 },
+			});
+			expect(room.settings.gameConfig.cycles).toBe(5);
+		});
+
+		test("sanitizes crocodile gameConfig: validates difficulty", () => {
+			const room = roomManager.create(host.id, { gameId: "crocodile" });
+			roomManager.updateSettings(room.code, host.id, {
+				gameConfig: { difficulty: "invalid" },
+			});
+			expect(room.settings.gameConfig.difficulty).toBe("all");
+		});
+
+		test("sanitizes crocodile gameConfig: validates wordLanguage", () => {
+			const room = roomManager.create(host.id, { gameId: "crocodile" });
+			roomManager.updateSettings(room.code, host.id, {
+				gameConfig: { wordLanguage: "fr" },
+			});
+			expect(room.settings.gameConfig.wordLanguage).toBe("ru");
+		});
+
+		test("sanitizes crocodile gameConfig: strips unknown fields", () => {
+			const room = roomManager.create(host.id, { gameId: "crocodile" });
+			roomManager.updateSettings(room.code, host.id, {
+				gameConfig: { roundTimeSeconds: 90, injectedField: "evil" },
+			});
+			expect(room.settings.gameConfig.roundTimeSeconds).toBe(90);
+			expect(room.settings.gameConfig.injectedField).toBeUndefined();
+		});
 	});
 
 	describe("canStart", () => {
