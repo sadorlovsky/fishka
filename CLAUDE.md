@@ -110,6 +110,16 @@ bun --hot ./index.ts
 
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
 
+## Linting & Formatting
+
+Use Biome for linting and formatting. Don't use ESLint or Prettier.
+
+- `bun run lint` — check for lint errors
+- `bun run lint:fix` — autofix lint errors
+- `bun run format` — format code
+
+Run `bun run lint:fix` after making changes to autofix formatting and lint issues.
+
 ## CSS
 
 Don't use CSS Modules (`.module.css`) — they are broken with Bun's HMR dev server ([bun#18258](https://github.com/oven-sh/bun/issues/18258)). Use plain `.css` files with manual scoping via component-name prefixes:

@@ -1,21 +1,39 @@
-# bun-react-template
+# fishka
 
-To install dependencies:
+Multiplayer browser game platform built with Bun, React, and TypeScript.
+
+## Games
+
+- **Word Guess (Шляпа)** — timed word explanation game
+- **Tapeworm (Червяки)** — tile-laying worm game
+
+## Stack
+
+- **Runtime**: Bun
+- **Frontend**: React 19 + TypeScript
+- **Transport**: WebSocket (native Bun)
+- **Storage**: SQLite (bun:sqlite) + Redis (Bun.redis)
+
+## Development
 
 ```bash
 bun install
-```
-
-To start a development server:
-
-```bash
 bun dev
 ```
 
-To run for production:
+## Testing
 
 ```bash
-bun start
+bun test
 ```
 
-This project was created using `bun init` in bun v1.3.8. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+## Linting
+
+```bash
+bun run lint        # check
+bun run lint:fix    # autofix
+```
+
+## License
+
+[MIT](LICENSE)
