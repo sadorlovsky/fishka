@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { ROUND_END_DELAY_MS, ROUND_START_COUNTDOWN_MS } from "@/shared/constants";
 import type { PlayerInfo } from "@/shared/types/room";
 import type {
 	WordGuessConfig,
@@ -56,6 +57,21 @@ function teamsState(): WordGuessState {
 	return plugin.createInitialState(makePlayers(4), teamsConfig);
 }
 
+/** Advance state from "starting" to "explaining" via beginRound action */
+function beginRound(state: WordGuessState): WordGuessState {
+	return plugin.reduce(state, { type: "beginRound" }, "__server__")!;
+}
+
+/** Create FFA state already in explaining phase */
+function ffaExplaining(playerCount = 2, config?: Partial<WordGuessConfig>): WordGuessState {
+	return beginRound(ffaState(playerCount, config));
+}
+
+/** Create teams state already in explaining phase */
+function teamsExplaining(): WordGuessState {
+	return beginRound(teamsState());
+}
+
 beforeEach(() => {
 	wordCounter = 0;
 });
@@ -67,7 +83,7 @@ describe("wordGuessPlugin", () => {
 		test("FFA 2 players: correct initial state", () => {
 			const state = ffaState(2);
 
-			expect(state.phase).toBe("explaining");
+			expect(state.phase).toBe("starting");
 			expect(state.mode).toBe("ffa");
 			expect(state.currentRound).toBe(1);
 			expect(state.totalRounds).toBe(2); // 2 players × 1 cycle
@@ -122,28 +138,60 @@ describe("wordGuessPlugin", () => {
 			expect(p3.teamId).toBe("b");
 		});
 
-		test("timerEndsAt is approximately now + roundTimeSeconds", () => {
+		test("timerEndsAt is approximately now + ROUND_START_COUNTDOWN_MS", () => {
 			const before = Date.now();
 			const state = ffaState(2);
 			const after = Date.now();
 
-			const expected = 60 * 1000;
-			expect(state.timerEndsAt).toBeGreaterThanOrEqual(before + expected);
-			expect(state.timerEndsAt).toBeLessThanOrEqual(after + expected);
+			expect(state.timerEndsAt).toBeGreaterThanOrEqual(before + ROUND_START_COUNTDOWN_MS);
+			expect(state.timerEndsAt).toBeLessThanOrEqual(after + ROUND_START_COUNTDOWN_MS);
 		});
 
 		test("custom roundTimeSeconds applied", () => {
-			const before = Date.now();
 			const state = ffaState(2, { roundTimeSeconds: 30 });
 
 			expect(state.roundTimeSeconds).toBe(30);
-			expect(state.timerEndsAt).toBeGreaterThanOrEqual(before + 30_000);
+		});
+	});
+
+	describe("beginRound", () => {
+		test("transitions from starting to explaining", () => {
+			const state = ffaState(2);
+			expect(state.phase).toBe("starting");
+
+			const next = beginRound(state);
+			expect(next.phase).toBe("explaining");
+		});
+
+		test("sets timerEndsAt to now + roundTimeSeconds", () => {
+			const before = Date.now();
+			const state = ffaState(2);
+			const next = beginRound(state);
+			const after = Date.now();
+
+			const expected = state.roundTimeSeconds * 1000;
+			expect(next.timerEndsAt).toBeGreaterThanOrEqual(before + expected);
+			expect(next.timerEndsAt).toBeLessThanOrEqual(after + expected);
+		});
+
+		test("rejects if not in starting phase", () => {
+			const state = ffaExplaining(2);
+			expect(plugin.validateAction(state, { type: "beginRound" }, "__server__")).toBe(
+				"Not in starting phase",
+			);
+		});
+
+		test("rejects non-server caller", () => {
+			const state = ffaState(2);
+			expect(plugin.validateAction(state, { type: "beginRound" }, "p1")).toBe(
+				"Only server can begin round",
+			);
 		});
 	});
 
 	describe("validateAction — correct", () => {
 		test("allows explainer with guesserId in FFA", () => {
-			const state = ffaState(2);
+			const state = ffaExplaining(2);
 			const explainer = state.currentExplainerId;
 			const guesser = state.players.find((p) => p.id !== explainer)!.id;
 
@@ -153,7 +201,7 @@ describe("wordGuessPlugin", () => {
 		});
 
 		test("rejects non-explainer", () => {
-			const state = ffaState(2);
+			const state = ffaExplaining(2);
 			const nonExplainer = state.players.find((p) => p.id !== state.currentExplainerId)!.id;
 
 			expect(
@@ -166,7 +214,7 @@ describe("wordGuessPlugin", () => {
 		});
 
 		test("rejects outside explaining phase", () => {
-			const state = { ...ffaState(2), phase: "roundEnd" as const };
+			const state = { ...ffaExplaining(2), phase: "roundEnd" as const };
 			const explainer = state.currentExplainerId;
 
 			expect(plugin.validateAction(state, { type: "correct", guesserId: "p2" }, explainer)).toBe(
@@ -175,7 +223,7 @@ describe("wordGuessPlugin", () => {
 		});
 
 		test("rejects FFA without guesserId", () => {
-			const state = ffaState(2);
+			const state = ffaExplaining(2);
 			const explainer = state.currentExplainerId;
 
 			expect(plugin.validateAction(state, { type: "correct" }, explainer)).toBe(
@@ -184,7 +232,7 @@ describe("wordGuessPlugin", () => {
 		});
 
 		test("rejects FFA when guesserId is explainer", () => {
-			const state = ffaState(2);
+			const state = ffaExplaining(2);
 			const explainer = state.currentExplainerId;
 
 			expect(
@@ -193,7 +241,7 @@ describe("wordGuessPlugin", () => {
 		});
 
 		test("rejects FFA when guesserId not found", () => {
-			const state = ffaState(2);
+			const state = ffaExplaining(2);
 			const explainer = state.currentExplainerId;
 
 			expect(
@@ -202,7 +250,7 @@ describe("wordGuessPlugin", () => {
 		});
 
 		test("allows teams mode without guesserId", () => {
-			const state = teamsState();
+			const state = teamsExplaining();
 			const explainer = state.currentExplainerId;
 
 			expect(plugin.validateAction(state, { type: "correct" }, explainer)).toBeNull();
@@ -211,18 +259,18 @@ describe("wordGuessPlugin", () => {
 
 	describe("validateAction — skip", () => {
 		test("allows explainer", () => {
-			const state = ffaState(2);
+			const state = ffaExplaining(2);
 			expect(plugin.validateAction(state, { type: "skip" }, state.currentExplainerId)).toBeNull();
 		});
 
 		test("rejects non-explainer", () => {
-			const state = ffaState(2);
+			const state = ffaExplaining(2);
 			const other = state.players.find((p) => p.id !== state.currentExplainerId)!.id;
 			expect(plugin.validateAction(state, { type: "skip" }, other)).not.toBeNull();
 		});
 
 		test("rejects outside explaining phase", () => {
-			const state = { ...ffaState(2), phase: "roundEnd" as const };
+			const state = { ...ffaExplaining(2), phase: "roundEnd" as const };
 			expect(plugin.validateAction(state, { type: "skip" }, state.currentExplainerId)).toBe(
 				"Not in explaining phase",
 			);
@@ -231,19 +279,19 @@ describe("wordGuessPlugin", () => {
 
 	describe("validateAction — timerExpired", () => {
 		test("allows __server__", () => {
-			const state = ffaState(2);
+			const state = ffaExplaining(2);
 			expect(plugin.validateAction(state, { type: "timerExpired" }, "__server__")).toBeNull();
 		});
 
 		test("rejects regular player", () => {
-			const state = ffaState(2);
+			const state = ffaExplaining(2);
 			expect(plugin.validateAction(state, { type: "timerExpired" }, "p1")).toBe(
 				"Only server can expire timer",
 			);
 		});
 
 		test("rejects outside explaining phase", () => {
-			const state = { ...ffaState(2), phase: "roundEnd" as const };
+			const state = { ...ffaExplaining(2), phase: "roundEnd" as const };
 			expect(plugin.validateAction(state, { type: "timerExpired" }, "__server__")).toBe(
 				"Not in explaining phase",
 			);
@@ -252,12 +300,12 @@ describe("wordGuessPlugin", () => {
 
 	describe("validateAction — nextRound", () => {
 		test("allows in roundEnd phase", () => {
-			const state = { ...ffaState(2), phase: "roundEnd" as const };
+			const state = { ...ffaExplaining(2), phase: "roundEnd" as const };
 			expect(plugin.validateAction(state, { type: "nextRound" }, "__server__")).toBeNull();
 		});
 
 		test("rejects outside roundEnd phase", () => {
-			const state = ffaState(2);
+			const state = ffaExplaining(2);
 			expect(plugin.validateAction(state, { type: "nextRound" }, "__server__")).toBe(
 				"Not in round end phase",
 			);
@@ -272,8 +320,8 @@ describe("wordGuessPlugin", () => {
 	});
 
 	describe("reduce — correct (FFA)", () => {
-		test("awards +1 to explainer and guesser", () => {
-			const state = ffaState(2);
+		test("awards +1 to guesser only", () => {
+			const state = ffaExplaining(2);
 			const explainer = state.currentExplainerId;
 			const guesser = state.players.find((p) => p.id !== explainer)!.id;
 
@@ -282,12 +330,12 @@ describe("wordGuessPlugin", () => {
 			const explainerScore = next.players.find((p) => p.id === explainer)!.score;
 			const guesserScore = next.players.find((p) => p.id === guesser)!.score;
 
-			expect(explainerScore).toBe(1);
+			expect(explainerScore).toBe(0);
 			expect(guesserScore).toBe(1);
 		});
 
 		test("fetches new word and tracks in wordsUsedByTeam", () => {
-			const state = ffaState(2);
+			const state = ffaExplaining(2);
 			const explainer = state.currentExplainerId;
 			const guesser = state.players.find((p) => p.id !== explainer)!.id;
 			const oldWord = state.currentWord;
@@ -301,7 +349,7 @@ describe("wordGuessPlugin", () => {
 		});
 
 		test("adds to roundResults", () => {
-			const state = ffaState(2);
+			const state = ffaExplaining(2);
 			const explainer = state.currentExplainerId;
 			const guesser = state.players.find((p) => p.id !== explainer)!.id;
 			const word = state.currentWord;
@@ -317,7 +365,7 @@ describe("wordGuessPlugin", () => {
 		});
 
 		test("stays in explaining phase", () => {
-			const state = ffaState(2);
+			const state = ffaExplaining(2);
 			const explainer = state.currentExplainerId;
 			const guesser = state.players.find((p) => p.id !== explainer)!.id;
 
@@ -328,33 +376,31 @@ describe("wordGuessPlugin", () => {
 	});
 
 	describe("reduce — correct (Teams)", () => {
-		test("awards +1 to explainer and +1 to team score", () => {
-			const state = teamsState();
+		test("awards +1 to team score", () => {
+			const state = teamsExplaining();
 			const explainer = state.currentExplainerId;
 			const explainerPlayer = state.players.find((p) => p.id === explainer)!;
 
 			const next = plugin.reduce(state, { type: "correct" }, explainer)!;
 
-			const updatedExplainer = next.players.find((p) => p.id === explainer)!;
-			expect(updatedExplainer.score).toBe(1);
 			expect(next.teamScores![explainerPlayer.teamId!]).toBe(1);
 		});
 	});
 
 	describe("reduce — skip", () => {
-		test("penalizes explainer -1, others unchanged", () => {
-			const state = ffaState(2);
+		test("scores unchanged on skip", () => {
+			const state = ffaExplaining(2);
 			const explainer = state.currentExplainerId;
 			const other = state.players.find((p) => p.id !== explainer)!.id;
 
 			const next = plugin.reduce(state, { type: "skip" }, explainer)!;
 
-			expect(next.players.find((p) => p.id === explainer)!.score).toBe(-1);
+			expect(next.players.find((p) => p.id === explainer)!.score).toBe(0);
 			expect(next.players.find((p) => p.id === other)!.score).toBe(0);
 		});
 
 		test("adds skipped result to roundResults", () => {
-			const state = ffaState(2);
+			const state = ffaExplaining(2);
 			const word = state.currentWord;
 
 			const next = plugin.reduce(state, { type: "skip" }, state.currentExplainerId)!;
@@ -367,18 +413,18 @@ describe("wordGuessPlugin", () => {
 			});
 		});
 
-		test("Teams: penalizes team score -1", () => {
-			const state = teamsState();
+		test("Teams: team score unchanged on skip", () => {
+			const state = teamsExplaining();
 			const explainer = state.currentExplainerId;
 			const explainerPlayer = state.players.find((p) => p.id === explainer)!;
 
 			const next = plugin.reduce(state, { type: "skip" }, explainer)!;
 
-			expect(next.teamScores![explainerPlayer.teamId!]).toBe(-1);
+			expect(next.teamScores![explainerPlayer.teamId!]).toBe(0);
 		});
 
 		test("fetches new word", () => {
-			const state = ffaState(2);
+			const state = ffaExplaining(2);
 			const oldWord = state.currentWord;
 
 			const next = plugin.reduce(state, { type: "skip" }, state.currentExplainerId)!;
@@ -389,14 +435,14 @@ describe("wordGuessPlugin", () => {
 
 	describe("reduce — timerExpired", () => {
 		test("transitions to roundEnd", () => {
-			const state = ffaState(2);
+			const state = ffaExplaining(2);
 			const next = plugin.reduce(state, { type: "timerExpired" }, "__server__")!;
 
 			expect(next.phase).toBe("roundEnd");
 		});
 
 		test("preserves roundResults and scores", () => {
-			let state = ffaState(2);
+			let state = ffaExplaining(2);
 			const explainer = state.currentExplainerId;
 			const guesser = state.players.find((p) => p.id !== explainer)!.id;
 
@@ -405,38 +451,38 @@ describe("wordGuessPlugin", () => {
 			const next = plugin.reduce(state, { type: "timerExpired" }, "__server__")!;
 
 			expect(next.roundResults).toHaveLength(1);
-			expect(next.players.find((p) => p.id === explainer)!.score).toBe(1);
+			expect(next.players.find((p) => p.id === guesser)!.score).toBe(1);
 		});
 	});
 
 	describe("reduce — nextRound", () => {
-		test("advances to next round with new explainer", () => {
-			let state = ffaState(2);
-			state = { ...state, phase: "roundEnd" as const };
+		test("advances to next round with new explainer via starting phase", () => {
+			let state = ffaExplaining(2);
+			state = plugin.reduce(state, { type: "timerExpired" }, "__server__")!;
 			const firstExplainer = state.currentExplainerId;
 
 			const next = plugin.reduce(state, { type: "nextRound" }, "__server__")!;
 
-			expect(next.phase).toBe("explaining");
+			expect(next.phase).toBe("starting");
 			expect(next.currentRound).toBe(2);
 			expect(next.currentExplainerId).toBe(state.explainerOrder[1]!);
 			expect(next.currentExplainerId).not.toBe(firstExplainer);
 			expect(next.roundResults).toHaveLength(0);
 		});
 
-		test("sets new timerEndsAt", () => {
-			let state = ffaState(2);
-			state = { ...state, phase: "roundEnd" as const };
+		test("sets timerEndsAt to ROUND_START_COUNTDOWN_MS", () => {
+			let state = ffaExplaining(2);
+			state = plugin.reduce(state, { type: "timerExpired" }, "__server__")!;
 			const before = Date.now();
 
 			const next = plugin.reduce(state, { type: "nextRound" }, "__server__")!;
 
-			expect(next.timerEndsAt).toBeGreaterThanOrEqual(before + 60_000);
+			expect(next.timerEndsAt).toBeGreaterThanOrEqual(before + ROUND_START_COUNTDOWN_MS);
 		});
 
 		test("fetches new word", () => {
-			let state = ffaState(2);
-			state = { ...state, phase: "roundEnd" as const };
+			let state = ffaExplaining(2);
+			state = plugin.reduce(state, { type: "timerExpired" }, "__server__")!;
 			const oldWord = state.currentWord;
 
 			const next = plugin.reduce(state, { type: "nextRound" }, "__server__")!;
@@ -446,7 +492,7 @@ describe("wordGuessPlugin", () => {
 		});
 
 		test("transitions to gameOver on last round", () => {
-			let state = ffaState(2);
+			let state = ffaExplaining(2);
 			state = {
 				...state,
 				phase: "roundEnd" as const,
@@ -462,15 +508,22 @@ describe("wordGuessPlugin", () => {
 
 	describe("getPlayerView", () => {
 		test("explainer sees currentWord in explaining phase", () => {
-			const state = ffaState(2);
+			const state = ffaExplaining(2);
 			const view = plugin.getPlayerView(state, state.currentExplainerId) as WordGuessPlayerView;
 
 			expect(view.currentWord).toBe(state.currentWord);
 			expect(view.isExplainer).toBe(true);
 		});
 
-		test("non-explainer does not see currentWord in explaining phase", () => {
+		test("explainer does not see currentWord in starting phase", () => {
 			const state = ffaState(2);
+			const view = plugin.getPlayerView(state, state.currentExplainerId) as WordGuessPlayerView;
+
+			expect(view.currentWord).toBeNull();
+		});
+
+		test("non-explainer does not see currentWord in explaining phase", () => {
+			const state = ffaExplaining(2);
 			const other = state.players.find((p) => p.id !== state.currentExplainerId)!.id;
 			const view = plugin.getPlayerView(state, other) as WordGuessPlayerView;
 
@@ -479,7 +532,7 @@ describe("wordGuessPlugin", () => {
 		});
 
 		test("nobody sees currentWord in roundEnd phase", () => {
-			const state = { ...ffaState(2), phase: "roundEnd" as const };
+			const state = { ...ffaExplaining(2), phase: "roundEnd" as const };
 
 			const explainerView = plugin.getPlayerView(
 				state,
@@ -495,7 +548,7 @@ describe("wordGuessPlugin", () => {
 		});
 
 		test("roundResults empty during explaining, filled during roundEnd", () => {
-			let state = ffaState(2);
+			let state = ffaExplaining(2);
 			const explainer = state.currentExplainerId;
 			const guesser = state.players.find((p) => p.id !== explainer)!.id;
 
@@ -514,7 +567,7 @@ describe("wordGuessPlugin", () => {
 		});
 
 		test("roundCorrectCount and roundSkipCount are accurate", () => {
-			let state = ffaState(2);
+			let state = ffaExplaining(2);
 			const explainer = state.currentExplainerId;
 			const guesser = state.players.find((p) => p.id !== explainer)!.id;
 
@@ -530,7 +583,7 @@ describe("wordGuessPlugin", () => {
 
 	describe("getSpectatorView", () => {
 		test("always sees currentWord", () => {
-			const state = ffaState(2);
+			const state = ffaExplaining(2);
 			const view = plugin.getSpectatorView(state) as WordGuessPlayerView;
 
 			expect(view.currentWord).toBe(state.currentWord);
@@ -538,7 +591,7 @@ describe("wordGuessPlugin", () => {
 		});
 
 		test("always has roundResults", () => {
-			let state = ffaState(2);
+			let state = ffaExplaining(2);
 			const explainer = state.currentExplainerId;
 			const guesser = state.players.find((p) => p.id !== explainer)!.id;
 
@@ -550,8 +603,19 @@ describe("wordGuessPlugin", () => {
 	});
 
 	describe("getTimerConfig", () => {
-		test("explaining phase: returns timerExpired config", () => {
+		test("starting phase: returns beginRound config", () => {
 			const state = ffaState(2);
+			const config = plugin.getTimerConfig!(state);
+
+			expect(config).not.toBeNull();
+			expect(config!.key).toBe("starting-1");
+			expect(config!.action).toEqual({ type: "beginRound" });
+			expect(config!.durationMs).toBeGreaterThan(0);
+			expect(config!.durationMs).toBeLessThanOrEqual(ROUND_START_COUNTDOWN_MS);
+		});
+
+		test("explaining phase: returns timerExpired config", () => {
+			const state = ffaExplaining(2);
 			const config = plugin.getTimerConfig!(state);
 
 			expect(config).not.toBeNull();
@@ -560,18 +624,20 @@ describe("wordGuessPlugin", () => {
 			expect(config!.durationMs).toBeGreaterThan(0);
 		});
 
-		test("roundEnd phase: returns nextRound config with 7s delay", () => {
-			const state = { ...ffaState(2), phase: "roundEnd" as const };
+		test("roundEnd phase: returns nextRound config", () => {
+			let state = ffaExplaining(2);
+			state = plugin.reduce(state, { type: "timerExpired" }, "__server__")!;
 			const config = plugin.getTimerConfig!(state);
 
 			expect(config).not.toBeNull();
 			expect(config!.key).toBe("roundEnd-1");
 			expect(config!.action).toEqual({ type: "nextRound" });
-			expect(config!.durationMs).toBe(7000);
+			expect(config!.durationMs).toBeGreaterThan(0);
+			expect(config!.durationMs).toBeLessThanOrEqual(ROUND_END_DELAY_MS);
 		});
 
 		test("gameOver phase: returns null", () => {
-			const state = { ...ffaState(2), phase: "gameOver" as const };
+			const state = { ...ffaExplaining(2), phase: "gameOver" as const };
 			const config = plugin.getTimerConfig!(state);
 
 			expect(config).toBeNull();
@@ -584,20 +650,25 @@ describe("wordGuessPlugin", () => {
 			expect(plugin.isGameOver(state)).toBe(true);
 		});
 
-		test("false when phase is explaining", () => {
+		test("false when phase is starting", () => {
 			const state = ffaState(2);
 			expect(plugin.isGameOver(state)).toBe(false);
 		});
 
+		test("false when phase is explaining", () => {
+			const state = ffaExplaining(2);
+			expect(plugin.isGameOver(state)).toBe(false);
+		});
+
 		test("false when phase is roundEnd", () => {
-			const state = { ...ffaState(2), phase: "roundEnd" as const };
+			const state = { ...ffaExplaining(2), phase: "roundEnd" as const };
 			expect(plugin.isGameOver(state)).toBe(false);
 		});
 	});
 
 	describe("full game flow", () => {
 		test("FFA 2 players: complete game with correct scoring", () => {
-			let state = ffaState(2);
+			let state = ffaExplaining(2);
 			const explainer1 = state.currentExplainerId;
 			const guesser1 = state.players.find((p) => p.id !== explainer1)!.id;
 
@@ -607,19 +678,22 @@ describe("wordGuessPlugin", () => {
 			state = plugin.reduce(state, { type: "correct", guesserId: guesser1 }, explainer1)!;
 			state = plugin.reduce(state, { type: "skip" }, explainer1)!;
 
-			// After round 1: explainer1 = +3-1 = 2, guesser1 = +3 = 3
-			expect(state.players.find((p) => p.id === explainer1)!.score).toBe(2);
+			// After round 1: guesser1 = +3 (only guesser gets points), explainer1 = 0
 			expect(state.players.find((p) => p.id === guesser1)!.score).toBe(3);
+			expect(state.players.find((p) => p.id === explainer1)!.score).toBe(0);
 
 			// Timer expires, round ends
 			state = plugin.reduce(state, { type: "timerExpired" }, "__server__")!;
 			expect(state.phase).toBe("roundEnd");
 			expect(state.roundResults).toHaveLength(4);
 
-			// Next round: roles swap
+			// Next round: goes to starting, then beginRound
 			state = plugin.reduce(state, { type: "nextRound" }, "__server__")!;
-			expect(state.phase).toBe("explaining");
+			expect(state.phase).toBe("starting");
 			expect(state.currentRound).toBe(2);
+
+			state = beginRound(state);
+			expect(state.phase).toBe("explaining");
 			const explainer2 = state.currentExplainerId;
 			expect(explainer2).toBe(state.explainerOrder[1]!);
 			expect(explainer2).not.toBe(explainer1);
@@ -639,15 +713,13 @@ describe("wordGuessPlugin", () => {
 			expect(state.phase).toBe("gameOver");
 			expect(plugin.isGameOver(state)).toBe(true);
 
-			// Final scores:
-			// explainer1 was p1 or p2 (shuffled), guesser1 was the other
-			// Round 1: explainer1 +2 (3 correct - 1 skip), guesser1 +3 (3 correct)
-			// Round 2: explainer2 +2 (2 correct), guesser2 +2 (2 correct)
+			// Final scores (only guessers get points):
+			// guesser1 (round 1) = +3, guesser2 (round 2) = +2
 			// Since explainer2 = guesser1 and guesser2 = explainer1:
-			// explainer1 total = 2 + 2 = 4, guesser1 total = 3 + 2 = 5
+			// explainer1 total = 0 + 2 = 2, guesser1 total = 3 + 0 = 3
 			const scores = Object.fromEntries(state.players.map((p) => [p.id, p.score]));
-			expect(scores[explainer1]).toBe(4);
-			expect(scores[guesser1]).toBe(5);
+			expect(scores[explainer1]).toBe(2);
+			expect(scores[guesser1]).toBe(3);
 		});
 	});
 });

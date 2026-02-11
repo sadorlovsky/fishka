@@ -5,7 +5,7 @@ Multiplayer browser game platform built with Bun, React, and TypeScript.
 ## Games
 
 - **Word Guess (Шляпа)** — timed word explanation game
-- **Tapeworm (Червяки)** — tile-laying worm game
+- **Tapeworm (Червяк)** — tile-laying worm game
 
 ## Stack
 
