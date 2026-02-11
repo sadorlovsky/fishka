@@ -1,4 +1,5 @@
 import type { ServerWebSocket } from "bun";
+import { HEARTBEAT_TIMEOUT, ORPHAN_PLAYER_TIMEOUT } from "@/shared/constants";
 import type { PlayerInfo } from "@/shared/types/room";
 import type { WSData } from "../ws/connection";
 
@@ -143,6 +144,55 @@ class PlayerManager {
 			isConnected: player.isConnected,
 			isSpectator: player.isSpectator,
 		};
+	}
+
+	sweepStaleConnections(): number {
+		const now = Date.now();
+		let closed = 0;
+
+		for (const player of this.players.values()) {
+			if (player.isConnected && player.ws && now - player.lastHeartbeat > HEARTBEAT_TIMEOUT) {
+				player.ws.close();
+				closed++;
+			}
+		}
+
+		return closed;
+	}
+
+	sweepOrphanPlayers(): number {
+		const now = Date.now();
+		let removed = 0;
+		const toRemove: string[] = [];
+
+		for (const player of this.players.values()) {
+			if (
+				!player.isConnected &&
+				!player.roomCode &&
+				now - player.lastHeartbeat > ORPHAN_PLAYER_TIMEOUT
+			) {
+				toRemove.push(player.id);
+			}
+		}
+
+		for (const id of toRemove) {
+			this.remove(id);
+			removed++;
+		}
+
+		return removed;
+	}
+
+	startSweep(intervalMs = 15_000): void {
+		setInterval(() => {
+			const closed = this.sweepStaleConnections();
+			const removed = this.sweepOrphanPlayers();
+			if (closed > 0 || removed > 0) {
+				console.log(
+					`[sweep] closed ${closed} stale, removed ${removed} orphan players, ${this.players.size} remaining`,
+				);
+			}
+		}, intervalMs);
 	}
 
 	get count(): number {

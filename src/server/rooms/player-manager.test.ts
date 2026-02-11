@@ -221,4 +221,103 @@ describe("PlayerManager", () => {
 			expect(playerManager.count).toBe(initial);
 		});
 	});
+
+	describe("sweepStaleConnections", () => {
+		test("closes connections with stale heartbeat", () => {
+			let closed = false;
+			const mockWs = createMockWs();
+			(mockWs as unknown as { close: () => void }).close = () => {
+				closed = true;
+			};
+
+			const player = playerManager.create("Stale", 0, mockWs);
+			// Set heartbeat to 20 seconds ago (beyond HEARTBEAT_TIMEOUT of 15s)
+			player.lastHeartbeat = Date.now() - 20_000;
+
+			const count = playerManager.sweepStaleConnections();
+			expect(count).toBe(1);
+			expect(closed).toBe(true);
+
+			playerManager.remove(player.id);
+		});
+
+		test("does not close connections with recent heartbeat", () => {
+			let closed = false;
+			const mockWs = createMockWs();
+			(mockWs as unknown as { close: () => void }).close = () => {
+				closed = true;
+			};
+
+			const player = playerManager.create("Active", 0, mockWs);
+			// Heartbeat is fresh (just created)
+
+			const count = playerManager.sweepStaleConnections();
+			expect(count).toBe(0);
+			expect(closed).toBe(false);
+
+			playerManager.remove(player.id);
+		});
+
+		test("does not affect disconnected players", () => {
+			const player = playerManager.create("Disconnected", 0, ws1);
+			playerManager.disconnect(ws1);
+			player.lastHeartbeat = Date.now() - 20_000;
+
+			const count = playerManager.sweepStaleConnections();
+			expect(count).toBe(0);
+
+			playerManager.remove(player.id);
+		});
+	});
+
+	describe("sweepOrphanPlayers", () => {
+		test("removes disconnected players without room after timeout", () => {
+			const player = playerManager.create("Orphan", 0, ws1);
+			playerManager.disconnect(ws1);
+			// Set heartbeat to 6 minutes ago (beyond ORPHAN_PLAYER_TIMEOUT of 5 min)
+			player.lastHeartbeat = Date.now() - 6 * 60_000;
+
+			const countBefore = playerManager.count;
+			const removed = playerManager.sweepOrphanPlayers();
+			expect(removed).toBe(1);
+			expect(playerManager.count).toBe(countBefore - 1);
+			expect(playerManager.get(player.id)).toBeNull();
+		});
+
+		test("does not remove disconnected players in a room", () => {
+			const player = playerManager.create("InRoom", 0, ws1);
+			player.roomCode = "ABCD";
+			playerManager.disconnect(ws1);
+			player.lastHeartbeat = Date.now() - 6 * 60_000;
+
+			const removed = playerManager.sweepOrphanPlayers();
+			expect(removed).toBe(0);
+			expect(playerManager.get(player.id)).not.toBeNull();
+
+			playerManager.remove(player.id);
+		});
+
+		test("does not remove recently disconnected players", () => {
+			const player = playerManager.create("Recent", 0, ws1);
+			playerManager.disconnect(ws1);
+			// Heartbeat just 1 minute ago
+			player.lastHeartbeat = Date.now() - 60_000;
+
+			const removed = playerManager.sweepOrphanPlayers();
+			expect(removed).toBe(0);
+			expect(playerManager.get(player.id)).not.toBeNull();
+
+			playerManager.remove(player.id);
+		});
+
+		test("does not remove connected players", () => {
+			const player = playerManager.create("Connected", 0, ws1);
+			player.lastHeartbeat = Date.now() - 6 * 60_000;
+
+			const removed = playerManager.sweepOrphanPlayers();
+			expect(removed).toBe(0);
+
+			playerManager.remove(player.id);
+		});
+	});
 });

@@ -36,4 +36,29 @@ describe("parseMessage", () => {
 	test("returns null for empty object", () => {
 		expect(parseMessage("{}")).toBeNull();
 	});
+
+	test("returns null for unknown message type", () => {
+		expect(parseMessage('{"type":"hacked"}')).toBeNull();
+	});
+
+	test("rejects connect with missing required fields", () => {
+		expect(parseMessage('{"type":"connect"}')).toBeNull();
+	});
+
+	test("rejects connect with empty playerName", () => {
+		expect(parseMessage('{"type":"connect","playerName":"","avatarSeed":0}')).toBeNull();
+	});
+
+	test("rejects connect with playerName too long", () => {
+		const name = "A".repeat(21);
+		expect(parseMessage(`{"type":"connect","playerName":"${name}","avatarSeed":0}`)).toBeNull();
+	});
+
+	test("rejects connect with negative avatarSeed", () => {
+		expect(parseMessage('{"type":"connect","playerName":"Alice","avatarSeed":-1}')).toBeNull();
+	});
+
+	test("rejects joinRoom with empty roomCode", () => {
+		expect(parseMessage('{"type":"joinRoom","roomCode":""}')).toBeNull();
+	});
 });

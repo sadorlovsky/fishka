@@ -1,5 +1,6 @@
 import {
 	ErrorCode,
+	MAX_PLAYERS_PER_ROOM,
 	MIN_PLAYERS_TO_START,
 	ROOM_CODE_CHARS,
 	ROOM_CODE_LENGTH,
@@ -22,10 +23,55 @@ interface ServerRoom {
 	gameState: unknown | null;
 }
 
+function clamp(value: unknown, min: number, max: number, fallback: number): number {
+	if (typeof value !== "number" || !Number.isFinite(value)) {
+		return fallback;
+	}
+	return Math.max(min, Math.min(max, Math.floor(value)));
+}
+
+function sanitizeGameConfig(
+	gameId: string,
+	config: Record<string, unknown>,
+): Record<string, unknown> {
+	const sanitized: Record<string, unknown> = {};
+
+	if (gameId === "word-guess") {
+		if ("mode" in config) {
+			sanitized.mode = config.mode === "teams" ? "teams" : "ffa";
+		}
+		if ("roundTimeSeconds" in config) {
+			sanitized.roundTimeSeconds = clamp(config.roundTimeSeconds, 10, 300, 60);
+		}
+		if ("cycles" in config) {
+			sanitized.cycles = clamp(config.cycles, 1, 10, 1);
+		}
+		if ("wordLanguage" in config) {
+			sanitized.wordLanguage = config.wordLanguage === "en" ? "en" : "ru";
+		}
+		if ("difficulty" in config) {
+			const d = config.difficulty;
+			sanitized.difficulty = d === 1 || d === 2 || d === 3 ? d : "all";
+		}
+		if ("teams" in config && typeof config.teams === "object" && config.teams !== null) {
+			sanitized.teams = config.teams;
+		}
+	} else if (gameId === "tapeworm") {
+		if ("handSize" in config) {
+			sanitized.handSize = clamp(config.handSize, 3, 8, 5);
+		}
+	} else {
+		// Unknown game — pass through as-is (plugin will merge with defaults)
+		return config;
+	}
+
+	return sanitized;
+}
+
 function generateRoomCode(): string {
 	let code = "";
 	for (let i = 0; i < ROOM_CODE_LENGTH; i++) {
-		code += ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)];
+		code += ROOM_CODE_CHARS[crypto.getRandomValues(new Uint8Array(1))[0]! % ROOM_CODE_CHARS.length];
 	}
 	return code;
 }
@@ -38,6 +84,18 @@ class RoomManager {
 		do {
 			code = generateRoomCode();
 		} while (this.rooms.has(code));
+
+		// Sanitize incoming settings
+		if (settings?.maxPlayers !== undefined) {
+			settings.maxPlayers = Math.max(
+				MIN_PLAYERS_TO_START,
+				Math.min(MAX_PLAYERS_PER_ROOM, Math.floor(settings.maxPlayers)),
+			);
+		}
+		if (settings?.gameConfig) {
+			const gameId = settings.gameId ?? DEFAULT_ROOM_SETTINGS.gameId;
+			settings.gameConfig = sanitizeGameConfig(gameId, settings.gameConfig);
+		}
 
 		const room: ServerRoom = {
 			code,
@@ -69,10 +127,10 @@ class RoomManager {
 	): { room: ServerRoom; error?: undefined } | { room?: undefined; error: string } {
 		const room = this.rooms.get(roomCode);
 		if (!room) {
-			return { error: ErrorCode.ROOM_NOT_FOUND };
+			return { error: ErrorCode.JOIN_FAILED };
 		}
 		if (room.status === "playing") {
-			return { error: ErrorCode.ROOM_IN_PROGRESS };
+			return { error: ErrorCode.JOIN_FAILED };
 		}
 		if (room.bannedPlayerIds.has(playerId)) {
 			return { error: ErrorCode.PLAYER_BANNED };
@@ -169,6 +227,20 @@ class RoomManager {
 		}
 		if (room.status !== "lobby") {
 			return ErrorCode.ROOM_IN_PROGRESS;
+		}
+
+		// Clamp maxPlayers to valid range
+		if (settings.maxPlayers !== undefined) {
+			settings.maxPlayers = Math.max(
+				MIN_PLAYERS_TO_START,
+				Math.min(MAX_PLAYERS_PER_ROOM, Math.floor(settings.maxPlayers)),
+			);
+		}
+
+		// Sanitize gameConfig: clamp known fields per game
+		if (settings.gameConfig) {
+			const gameId = settings.gameId ?? room.settings.gameId;
+			settings.gameConfig = sanitizeGameConfig(gameId, settings.gameConfig);
 		}
 
 		room.settings = { ...room.settings, ...settings };

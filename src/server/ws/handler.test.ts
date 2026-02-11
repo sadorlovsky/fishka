@@ -1,0 +1,236 @@
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { createMockWs } from "../__tests__/helpers";
+import type { ServerPlayer } from "../rooms/player-manager";
+import { playerManager } from "../rooms/player-manager";
+import { roomManager } from "../rooms/room-manager";
+import { handleMessage } from "./handler";
+import { RateLimiter } from "./rate-limit";
+
+function msg(obj: unknown): string {
+	return JSON.stringify(obj);
+}
+
+function collectMessages(ws: ReturnType<typeof createMockWs>): unknown[] {
+	const messages: unknown[] = [];
+	(ws as unknown as { send: (data: string) => number }).send = (data: string) => {
+		messages.push(JSON.parse(data));
+		return 0;
+	};
+	return messages;
+}
+
+describe("handleMessage integration", () => {
+	describe("malformed messages", () => {
+		test("rejects invalid JSON", () => {
+			const ws = createMockWs();
+			const messages = collectMessages(ws);
+
+			handleMessage(ws, "not json");
+
+			expect(messages).toHaveLength(1);
+			expect(messages[0]).toMatchObject({
+				type: "error",
+				code: "INVALID_MESSAGE",
+			});
+		});
+
+		test("rejects unknown message type", () => {
+			const ws = createMockWs();
+			const messages = collectMessages(ws);
+
+			handleMessage(ws, msg({ type: "hacked" }));
+
+			expect(messages).toHaveLength(1);
+			expect(messages[0]).toMatchObject({
+				type: "error",
+				code: "INVALID_MESSAGE",
+			});
+		});
+
+		test("rejects connect with missing fields", () => {
+			const ws = createMockWs();
+			const messages = collectMessages(ws);
+
+			handleMessage(ws, msg({ type: "connect" }));
+
+			expect(messages).toHaveLength(1);
+			expect(messages[0]).toMatchObject({
+				type: "error",
+				code: "INVALID_MESSAGE",
+			});
+		});
+
+		test("rejects connect with empty playerName", () => {
+			const ws = createMockWs();
+			const messages = collectMessages(ws);
+
+			handleMessage(ws, msg({ type: "connect", playerName: "", avatarSeed: 0 }));
+
+			expect(messages).toHaveLength(1);
+			expect(messages[0]).toMatchObject({
+				type: "error",
+				code: "INVALID_MESSAGE",
+			});
+		});
+
+		test("rejects connect with oversized playerName", () => {
+			const ws = createMockWs();
+			const messages = collectMessages(ws);
+
+			handleMessage(
+				ws,
+				msg({
+					type: "connect",
+					playerName: "A".repeat(21),
+					avatarSeed: 0,
+				}),
+			);
+
+			expect(messages).toHaveLength(1);
+			expect(messages[0]).toMatchObject({
+				type: "error",
+				code: "INVALID_MESSAGE",
+			});
+		});
+
+		test("rejects joinRoom with empty code", () => {
+			const ws = createMockWs();
+			const messages = collectMessages(ws);
+
+			handleMessage(ws, msg({ type: "joinRoom", roomCode: "" }));
+
+			expect(messages).toHaveLength(1);
+			expect(messages[0]).toMatchObject({
+				type: "error",
+				code: "INVALID_MESSAGE",
+			});
+		});
+
+		test("rejects gameAction with missing action", () => {
+			const ws = createMockWs();
+			const messages = collectMessages(ws);
+
+			handleMessage(ws, msg({ type: "gameAction" }));
+
+			expect(messages).toHaveLength(1);
+			expect(messages[0]).toMatchObject({
+				type: "error",
+				code: "INVALID_MESSAGE",
+			});
+		});
+
+		test("rejects binary garbage", () => {
+			const ws = createMockWs();
+			const messages = collectMessages(ws);
+
+			handleMessage(ws, Buffer.from([0xff, 0xfe, 0x00, 0x01]));
+
+			expect(messages).toHaveLength(1);
+			expect(messages[0]).toMatchObject({
+				type: "error",
+				code: "INVALID_MESSAGE",
+			});
+		});
+	});
+
+	describe("brute-force join protection", () => {
+		let player: ServerPlayer;
+		let ws: ReturnType<typeof createMockWs>;
+
+		beforeEach(() => {
+			ws = createMockWs();
+			player = playerManager.create("Attacker", 0, ws);
+		});
+
+		afterEach(() => {
+			playerManager.remove(player.id);
+			// Reset the join rate limiter by creating a fresh one
+			// We can't reset the singleton, but the test IP "127.0.0.1"
+			// will expire after the window. For testing we use a dedicated limiter.
+		});
+
+		test("rate-limits join attempts per IP", () => {
+			const limiter = new RateLimiter(3, 60_000, "test-join");
+			const ip = "10.0.0.1";
+
+			expect(limiter.check(ip)).toBe(true); // 1
+			expect(limiter.check(ip)).toBe(true); // 2
+			expect(limiter.check(ip)).toBe(true); // 3
+			expect(limiter.check(ip)).toBe(false); // blocked
+			expect(limiter.check(ip)).toBe(false); // still blocked
+
+			// Different IP is not affected
+			expect(limiter.check("10.0.0.2")).toBe(true);
+		});
+
+		test("all failed join attempts return same error code (no oracle)", () => {
+			const ws1 = createMockWs();
+			const p1 = playerManager.create("P1", 0, ws1);
+			const room = roomManager.create(p1.id);
+
+			// Non-existent room
+			const result1 = roomManager.join("ZZZZ", player.id);
+			expect(result1.error).toBe("JOIN_FAILED");
+
+			// Room in progress
+			roomManager.setStatus(room.code, "playing");
+			const result2 = roomManager.join(room.code, player.id);
+			expect(result2.error).toBe("JOIN_FAILED");
+
+			// Cleanup
+			roomManager.setStatus(room.code, "lobby");
+			roomManager.leave(room.code, p1.id);
+			playerManager.remove(p1.id);
+		});
+
+		test("ROOM_FULL and PLAYER_BANNED remain distinguishable", () => {
+			const ws1 = createMockWs();
+			const ws2 = createMockWs();
+			const host = playerManager.create("Host", 0, ws1);
+			const filler = playerManager.create("Filler", 0, ws2);
+			const room = roomManager.create(host.id, { maxPlayers: 2 });
+			roomManager.join(room.code, filler.id);
+
+			// Room full
+			const result1 = roomManager.join(room.code, player.id);
+			expect(result1.error).toBe("ROOM_FULL");
+
+			// Ban
+			roomManager.ban(room.code, player.id);
+			roomManager.leave(room.code, filler.id);
+			const result2 = roomManager.join(room.code, player.id);
+			expect(result2.error).toBe("PLAYER_BANNED");
+
+			// Cleanup
+			roomManager.leave(room.code, host.id);
+			playerManager.remove(host.id);
+			playerManager.remove(filler.id);
+		});
+	});
+
+	describe("gameAction rate limiting", () => {
+		test("blocks excessive game actions per player", () => {
+			const limiter = new RateLimiter(3, 1_000, "test-gameAction");
+			const playerId = "player-123";
+
+			expect(limiter.check(playerId)).toBe(true); // 1
+			expect(limiter.check(playerId)).toBe(true); // 2
+			expect(limiter.check(playerId)).toBe(true); // 3
+			expect(limiter.check(playerId)).toBe(false); // blocked
+
+			// Other player not affected
+			expect(limiter.check("player-456")).toBe(true);
+		});
+	});
+
+	describe("connect rate limiting", () => {
+		test("blocks excessive connect attempts per IP", () => {
+			const limiter = new RateLimiter(2, 60_000, "test-connect");
+			const ip = "10.0.0.99";
+
+			expect(limiter.check(ip)).toBe(true);
+			expect(limiter.check(ip)).toBe(true);
+			expect(limiter.check(ip)).toBe(false);
+		});
+	});
+});

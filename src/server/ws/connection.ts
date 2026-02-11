@@ -1,5 +1,6 @@
 import type { ServerWebSocket } from "bun";
 import type { ClientMessage, ServerMessage } from "@/shared/types/protocol";
+import { decodeClientMessage } from "./schemas";
 
 export interface WSData {
 	playerId: string | null;
@@ -9,11 +10,8 @@ export interface WSData {
 export function parseMessage(raw: string | Buffer): ClientMessage | null {
 	try {
 		const text = typeof raw === "string" ? raw : new TextDecoder().decode(raw);
-		const msg = JSON.parse(text);
-		if (!msg || typeof msg.type !== "string") {
-			return null;
-		}
-		return msg as ClientMessage;
+		const json = JSON.parse(text);
+		return decodeClientMessage(json);
 	} catch {
 		return null;
 	}

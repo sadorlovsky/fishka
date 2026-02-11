@@ -12,7 +12,6 @@ export interface PlayerInfo {
 export interface RoomSettings {
 	gameId: string;
 	maxPlayers: number;
-	isPrivate: boolean;
 	gameConfig: Record<string, unknown>;
 }
 
@@ -28,6 +27,5 @@ export interface RoomState {
 export const DEFAULT_ROOM_SETTINGS: RoomSettings = {
 	gameId: "word-guess",
 	maxPlayers: 8,
-	isPrivate: false,
 	gameConfig: {},
 };

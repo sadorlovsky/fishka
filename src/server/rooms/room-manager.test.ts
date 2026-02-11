@@ -59,11 +59,22 @@ describe("RoomManager", () => {
 		test("applies custom settings", () => {
 			const room = roomManager.create(host.id, {
 				maxPlayers: 4,
-				isPrivate: true,
 			});
 
 			expect(room.settings.maxPlayers).toBe(4);
-			expect(room.settings.isPrivate).toBe(true);
+		});
+
+		test("clamps maxPlayers on create", () => {
+			const room = roomManager.create(host.id, { maxPlayers: 999 });
+			expect(room.settings.maxPlayers).toBe(12);
+		});
+
+		test("sanitizes gameConfig on create", () => {
+			const room = roomManager.create(host.id, {
+				gameConfig: { roundTimeSeconds: 99999, injectedField: "evil" },
+			});
+			expect(room.settings.gameConfig.roundTimeSeconds).toBe(300);
+			expect(room.settings.gameConfig.injectedField).toBeUndefined();
 		});
 
 		test("generates unique codes", () => {
@@ -96,9 +107,9 @@ describe("RoomManager", () => {
 			expect(player2.roomCode).toBe(room.code);
 		});
 
-		test("returns ROOM_NOT_FOUND for invalid code", () => {
+		test("returns JOIN_FAILED for invalid code", () => {
 			const result = roomManager.join("ZZZZ", player2.id);
-			expect(result.error).toBe(ErrorCode.ROOM_NOT_FOUND);
+			expect(result.error).toBe(ErrorCode.JOIN_FAILED);
 		});
 
 		test("returns ROOM_FULL when at capacity", () => {
@@ -109,12 +120,12 @@ describe("RoomManager", () => {
 			expect(result.error).toBe(ErrorCode.ROOM_FULL);
 		});
 
-		test("returns ROOM_IN_PROGRESS when playing", () => {
+		test("returns JOIN_FAILED when game in progress", () => {
 			const room = roomManager.create(host.id);
 			roomManager.setStatus(room.code, "playing");
 
 			const result = roomManager.join(room.code, player2.id);
-			expect(result.error).toBe(ErrorCode.ROOM_IN_PROGRESS);
+			expect(result.error).toBe(ErrorCode.JOIN_FAILED);
 		});
 
 		test("returns error when already in room", () => {
@@ -207,6 +218,73 @@ describe("RoomManager", () => {
 				maxPlayers: 6,
 			});
 			expect(error).toBe(ErrorCode.ROOM_NOT_FOUND);
+		});
+
+		test("clamps maxPlayers to valid range (too high)", () => {
+			const room = roomManager.create(host.id);
+			roomManager.updateSettings(room.code, host.id, { maxPlayers: 999 });
+			expect(room.settings.maxPlayers).toBe(12);
+		});
+
+		test("clamps maxPlayers to valid range (too low)", () => {
+			const room = roomManager.create(host.id);
+			roomManager.updateSettings(room.code, host.id, { maxPlayers: 0 });
+			expect(room.settings.maxPlayers).toBe(2);
+		});
+
+		test("clamps maxPlayers to valid range (float)", () => {
+			const room = roomManager.create(host.id);
+			roomManager.updateSettings(room.code, host.id, { maxPlayers: 5.9 });
+			expect(room.settings.maxPlayers).toBe(5);
+		});
+
+		test("sanitizes word-guess gameConfig: clamps roundTimeSeconds", () => {
+			const room = roomManager.create(host.id);
+			roomManager.updateSettings(room.code, host.id, {
+				gameConfig: { roundTimeSeconds: 99999 },
+			});
+			expect(room.settings.gameConfig.roundTimeSeconds).toBe(300);
+		});
+
+		test("sanitizes word-guess gameConfig: clamps cycles", () => {
+			const room = roomManager.create(host.id);
+			roomManager.updateSettings(room.code, host.id, {
+				gameConfig: { cycles: -5 },
+			});
+			expect(room.settings.gameConfig.cycles).toBe(1);
+		});
+
+		test("sanitizes word-guess gameConfig: rejects invalid difficulty", () => {
+			const room = roomManager.create(host.id);
+			roomManager.updateSettings(room.code, host.id, {
+				gameConfig: { difficulty: "hacked" },
+			});
+			expect(room.settings.gameConfig.difficulty).toBe("all");
+		});
+
+		test("sanitizes word-guess gameConfig: rejects invalid mode", () => {
+			const room = roomManager.create(host.id);
+			roomManager.updateSettings(room.code, host.id, {
+				gameConfig: { mode: "hacked" },
+			});
+			expect(room.settings.gameConfig.mode).toBe("ffa");
+		});
+
+		test("sanitizes word-guess gameConfig: strips unknown fields", () => {
+			const room = roomManager.create(host.id);
+			roomManager.updateSettings(room.code, host.id, {
+				gameConfig: { roundTimeSeconds: 30, injectedField: "evil" },
+			});
+			expect(room.settings.gameConfig.roundTimeSeconds).toBe(30);
+			expect(room.settings.gameConfig.injectedField).toBeUndefined();
+		});
+
+		test("sanitizes tapeworm gameConfig: clamps handSize", () => {
+			const room = roomManager.create(host.id, { gameId: "tapeworm" });
+			roomManager.updateSettings(room.code, host.id, {
+				gameConfig: { handSize: 100 },
+			});
+			expect(room.settings.gameConfig.handSize).toBe(8);
 		});
 	});
 

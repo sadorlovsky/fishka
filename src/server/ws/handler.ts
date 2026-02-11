@@ -5,6 +5,7 @@ import { destroyEngine, getEngine, startGame } from "../games/engine";
 import { playerManager } from "../rooms/player-manager";
 import { roomManager } from "../rooms/room-manager";
 import { parseMessage, send, sendError, type WSData } from "./connection";
+import { connectRateLimiter, gameActionRateLimiter, joinRateLimiter } from "./rate-limit";
 
 export function handleOpen(_ws: ServerWebSocket<WSData>): void {
 	console.log("[ws] new connection");
@@ -13,49 +14,55 @@ export function handleOpen(_ws: ServerWebSocket<WSData>): void {
 export function handleMessage(ws: ServerWebSocket<WSData>, raw: string | Buffer): void {
 	const msg = parseMessage(raw);
 	if (!msg) {
+		console.warn(`[security] invalid message from ip=${ws.remoteAddress}`);
 		sendError(ws, ErrorCode.INVALID_MESSAGE, "Invalid message format");
 		return;
 	}
 
-	switch (msg.type) {
-		case "connect":
-			handleConnect(ws, msg);
-			break;
-		case "heartbeat":
-			playerManager.heartbeat(ws);
-			break;
-		case "createRoom":
-			handleCreateRoom(ws, msg);
-			break;
-		case "joinRoom":
-			handleJoinRoom(ws, msg);
-			break;
-		case "leaveRoom":
-			handleLeaveRoom(ws);
-			break;
-		case "updateSettings":
-			handleUpdateSettings(ws, msg);
-			break;
-		case "startGame":
-			handleStartGame(ws);
-			break;
-		case "gameAction":
-			handleGameAction(ws, msg);
-			break;
-		case "returnToLobby":
-			handleReturnToLobby(ws);
-			break;
-		case "endGame":
-			handleEndGame(ws);
-			break;
-		case "switchTeam":
-			handleSwitchTeam(ws, msg);
-			break;
-		case "kickPlayer":
-			handleKickPlayer(ws, msg);
-			break;
-		default:
-			sendError(ws, ErrorCode.INVALID_MESSAGE, "Unknown message type");
+	try {
+		switch (msg.type) {
+			case "connect":
+				handleConnect(ws, msg);
+				break;
+			case "heartbeat":
+				playerManager.heartbeat(ws);
+				break;
+			case "createRoom":
+				handleCreateRoom(ws, msg);
+				break;
+			case "joinRoom":
+				handleJoinRoom(ws, msg);
+				break;
+			case "leaveRoom":
+				handleLeaveRoom(ws);
+				break;
+			case "updateSettings":
+				handleUpdateSettings(ws, msg);
+				break;
+			case "startGame":
+				handleStartGame(ws);
+				break;
+			case "gameAction":
+				handleGameAction(ws, msg);
+				break;
+			case "returnToLobby":
+				handleReturnToLobby(ws);
+				break;
+			case "endGame":
+				handleEndGame(ws);
+				break;
+			case "switchTeam":
+				handleSwitchTeam(ws, msg);
+				break;
+			case "kickPlayer":
+				handleKickPlayer(ws, msg);
+				break;
+			default:
+				sendError(ws, ErrorCode.INVALID_MESSAGE, "Unknown message type");
+		}
+	} catch (error) {
+		console.error("[ws] handler error:", error);
+		sendError(ws, ErrorCode.INVALID_MESSAGE, "Internal error processing message");
 	}
 }
 
@@ -63,6 +70,12 @@ function handleConnect(
 	ws: ServerWebSocket<WSData>,
 	msg: Extract<ClientMessage, { type: "connect" }>,
 ): void {
+	const ip = ws.remoteAddress;
+	if (!connectRateLimiter.check(ip)) {
+		sendError(ws, ErrorCode.RATE_LIMITED, "Too many connection attempts");
+		return;
+	}
+
 	// Try reconnect with existing session
 	if (msg.sessionToken) {
 		const existing = playerManager.getBySession(msg.sessionToken);
@@ -166,6 +179,12 @@ function handleJoinRoom(
 	ws: ServerWebSocket<WSData>,
 	msg: Extract<ClientMessage, { type: "joinRoom" }>,
 ): void {
+	const ip = ws.remoteAddress;
+	if (!joinRateLimiter.check(ip)) {
+		sendError(ws, ErrorCode.RATE_LIMITED, "Too many join attempts");
+		return;
+	}
+
 	const player = playerManager.getByWs(ws);
 	if (!player) {
 		return;
@@ -180,6 +199,9 @@ function handleJoinRoom(
 	const result = roomManager.join(code, player.id);
 
 	if (result.error || !result.room) {
+		console.warn(
+			`[security] failed join: code=${code} error=${result.error} ip=${ws.remoteAddress}`,
+		);
 		sendError(ws, result.error ?? "UNKNOWN", `Cannot join room`);
 		return;
 	}
@@ -296,6 +318,11 @@ function handleGameAction(
 ): void {
 	const player = playerManager.getByWs(ws);
 	if (!player?.roomCode) {
+		return;
+	}
+
+	if (!gameActionRateLimiter.check(player.id)) {
+		sendError(ws, ErrorCode.RATE_LIMITED, "Too many actions");
 		return;
 	}
 

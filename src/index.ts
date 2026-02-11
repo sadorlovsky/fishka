@@ -15,10 +15,16 @@ seedWords();
 registerPlugin(wordGuessPlugin);
 registerPlugin(tapewormPlugin);
 
-// Start room cleanup
+// Start room cleanup, player sweep, and rate limit cleanup
+import { playerManager } from "./server/rooms/player-manager";
 import { roomManager } from "./server/rooms/room-manager";
+import { connectRateLimiter, gameActionRateLimiter, joinRateLimiter } from "./server/ws/rate-limit";
 
 roomManager.startCleanup();
+playerManager.startSweep();
+connectRateLimiter.startSweep();
+joinRateLimiter.startSweep();
+gameActionRateLimiter.startSweep();
 
 const server = Bun.serve({
 	hostname: "0.0.0.0",
@@ -30,6 +36,22 @@ const server = Bun.serve({
 		const url = new URL(req.url);
 
 		if (url.pathname === "/ws") {
+			// Reject cross-origin WebSocket connections
+			const origin = req.headers.get("origin");
+			if (origin) {
+				const host = req.headers.get("host");
+				try {
+					const originHost = new URL(origin).host;
+					if (host && originHost !== host) {
+						console.warn(`[security] origin rejected: origin=${origin} host=${host}`);
+						return new Response("Forbidden", { status: 403 });
+					}
+				} catch {
+					console.warn(`[security] malformed origin: origin=${origin}`);
+					return new Response("Forbidden", { status: 403 });
+				}
+			}
+
 			const success = server.upgrade(req, {
 				data: {
 					playerId: null,

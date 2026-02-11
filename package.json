@@ -1,5 +1,5 @@
 {
-  "name": "bun-react-template",
+  "name": "fishka",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,8 +10,7 @@
     "test": "bun test",
     "lint": "biome check src/",
     "lint:fix": "biome check --write src/",
-    "format": "biome format --write src/",
-    "clear-rooms": "bun scripts/clear-rooms.ts"
+    "format": "biome format --write src/"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
