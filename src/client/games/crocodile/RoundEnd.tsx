@@ -33,7 +33,7 @@ export function RoundEnd({ state }: RoundEndProps) {
 				</p>
 			)}
 
-			<p className="hint-text">{shower?.name ?? "Игрок"} показывал(а)</p>
+			<p className="hint-text">Игрок {shower?.name ?? "???"} показывал</p>
 
 			<div className="round-summary">
 				<span className="counterCorrect">
