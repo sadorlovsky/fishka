@@ -1,0 +1,165 @@
+import { type ReactNode, useCallback, useEffect } from "react";
+import "./GameSettings.css";
+import { getRecommendedSettings } from "@/shared/game-settings";
+import type { RoomSettings } from "@/shared/types/room";
+import type { WordGuessConfig } from "@/shared/types/word-guess";
+import { DEFAULT_WORD_GUESS_CONFIG } from "@/shared/types/word-guess";
+import { plural } from "../utils/plural";
+
+const DIFFICULTY_LABELS: Record<string, string> = {
+	all: "Любые",
+	"1": "Лёгкие",
+	"2": "Средние",
+	"3": "Сложные",
+};
+
+interface GameSettingsProps {
+	settings: RoomSettings;
+	isHost: boolean;
+	playerCount: number;
+	onUpdate: (settings: Partial<RoomSettings>) => void;
+	children?: ReactNode;
+}
+
+function TapewormSettings({ children }: { children?: ReactNode }) {
+	return (
+		<div className="game-settings">
+			<p className="settings-summary">2–4 игрока · выкладывайте сегменты червей на поле</p>
+			{children}
+		</div>
+	);
+}
+
+function WordGuessSettings({
+	isHost,
+	playerCount,
+	onUpdate,
+	gameConfig,
+	children,
+}: {
+	isHost: boolean;
+	playerCount: number;
+	onUpdate: (settings: Partial<RoomSettings>) => void;
+	gameConfig: Record<string, unknown> | undefined;
+	children?: ReactNode;
+}) {
+	const config = {
+		...DEFAULT_WORD_GUESS_CONFIG,
+		...gameConfig,
+	} as WordGuessConfig;
+
+	const updateConfig = useCallback(
+		(patch: Partial<WordGuessConfig>) => {
+			onUpdate({
+				gameConfig: { ...config, ...patch },
+			});
+		},
+		[onUpdate, config],
+	);
+
+	useEffect(() => {
+		if (isHost && config.mode === "teams" && playerCount < 4) {
+			updateConfig({ mode: "ffa" });
+		}
+	}, [playerCount, config.mode, isHost, updateConfig]);
+
+	const recommended = getRecommendedSettings(playerCount, config.difficulty);
+	const totalRounds = recommended.cycles * playerCount;
+	const totalMinutes = Math.round((totalRounds * recommended.roundTimeSeconds) / 60);
+
+	if (!isHost) {
+		return (
+			<div className="game-settings">
+				<p className="settings-summary">
+					Режим: {config.mode === "ffa" ? "Каждый за себя" : "Команды"} · Слова:{" "}
+					{DIFFICULTY_LABELS[String(config.difficulty)]}
+				</p>
+				<p className="settings-summary">
+					{plural(recommended.roundTimeSeconds, "секунда", "секунды", "секунд")} на раунд ·{" "}
+					{plural(totalRounds, "раунд", "раунда", "раундов")} · ~
+					{plural(totalMinutes, "минута", "минуты", "минут")}
+				</p>
+				{children}
+			</div>
+		);
+	}
+
+	return (
+		<div className="game-settings">
+			<h3 className="settings-title">Настройки игры</h3>
+
+			<div className="settings-group">
+				<span className="settings-label">Режим</span>
+				<div className="settings-options">
+					<button
+						className={`settings-option${config.mode === "ffa" ? " settings-option--active" : ""}`}
+						onClick={() => updateConfig({ mode: "ffa" })}
+					>
+						Каждый за себя
+					</button>
+					<button
+						className={`settings-option${config.mode === "teams" ? " settings-option--active" : ""}`}
+						onClick={() => updateConfig({ mode: "teams" })}
+						disabled={playerCount < 4}
+						title={playerCount < 4 ? "Нужно минимум 4 игрока" : undefined}
+					>
+						Команды
+					</button>
+				</div>
+			</div>
+
+			<div className="settings-group">
+				<span className="settings-label">Сложность слов</span>
+				<div className="settings-options">
+					{(
+						[
+							{ value: "all" as const, label: "Любые" },
+							{ value: 1 as const, label: "Лёгкие" },
+							{ value: 2 as const, label: "Средние" },
+							{ value: 3 as const, label: "Сложные" },
+						] as const
+					).map(({ value, label }) => (
+						<button
+							key={String(value)}
+							className={`settings-option${config.difficulty === value ? " settings-option--active" : ""}`}
+							onClick={() => updateConfig({ difficulty: value })}
+						>
+							{label}
+						</button>
+					))}
+				</div>
+			</div>
+
+			<p className="settings-summary">
+				{plural(recommended.roundTimeSeconds, "секунда", "секунды", "секунд")} на раунд ·{" "}
+				{plural(totalRounds, "раунд", "раунда", "раундов")} · ~
+				{plural(totalMinutes, "минута", "минуты", "минут")}
+			</p>
+
+			{children}
+		</div>
+	);
+}
+
+export function GameSettings({
+	settings,
+	isHost,
+	playerCount,
+	onUpdate,
+	children,
+}: GameSettingsProps) {
+	if (settings.gameId === "tapeworm") {
+		return <TapewormSettings>{children}</TapewormSettings>;
+	}
+
+	return (
+		<WordGuessSettings
+			isHost={isHost}
+			playerCount={playerCount}
+			onUpdate={onUpdate}
+			gameConfig={settings.gameConfig}
+		>
+			{children}
+		</WordGuessSettings>
+	);
+}

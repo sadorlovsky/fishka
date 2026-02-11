@@ -1,0 +1,49 @@
+.starting-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 90;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 1rem;
+	background: rgba(18, 16, 21, 0.92);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	animation: starting-fade-in 0.2s ease-out;
+}
+
+@keyframes starting-fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+.starting-overlay-title {
+	font-size: 1.25rem;
+	font-weight: 800;
+	color: var(--color-text);
+}
+
+.starting-overlay-explainer {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.starting-overlay-explainer-text {
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: var(--color-primary);
+}
+
+.starting-overlay-countdown {
+	font-family: var(--font-mono);
+	font-size: 4rem;
+	font-weight: 800;
+	color: var(--color-primary);
+}

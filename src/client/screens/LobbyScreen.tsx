@@ -1,0 +1,172 @@
+import { useCallback, useState } from "react";
+import { getRecommendedSettings } from "@/shared/game-settings";
+import { GAME_META } from "@/shared/games";
+import type { RoomSettings } from "@/shared/types/room";
+import { DEFAULT_TAPEWORM_CONFIG } from "@/shared/types/tapeworm";
+import type { WordGuessConfig } from "@/shared/types/word-guess";
+import { DEFAULT_WORD_GUESS_CONFIG } from "@/shared/types/word-guess";
+import { GameSettings } from "../components/GameSettings";
+import { PlayerRoster } from "../components/PlayerRoster";
+import { useConnection } from "../contexts/ConnectionContext";
+import "./LobbyScreen.css";
+
+export function LobbyScreen() {
+	const { room, playerId, send } = useConnection();
+	const [codeCopied, setCodeCopied] = useState(false);
+
+	const copyFromCode = useCallback(() => {
+		if (!room) {
+			return;
+		}
+		navigator.clipboard.writeText(`${location.origin}/room/${room.code}`);
+		setCodeCopied(true);
+		setTimeout(() => setCodeCopied(false), 2000);
+	}, [room]);
+
+	if (!room) {
+		return null;
+	}
+
+	const isHost = room.hostId === playerId;
+	const allConnected = room.players.every((p) => p.isConnected);
+	const canStart = isHost && room.players.length >= 2 && allConnected;
+	const isTapeworm = room.settings.gameId === "tapeworm";
+
+	const config = isTapeworm
+		? { ...DEFAULT_TAPEWORM_CONFIG, ...room.settings.gameConfig }
+		: ({
+				...DEFAULT_WORD_GUESS_CONFIG,
+				...room.settings.gameConfig,
+			} as WordGuessConfig);
+
+	const isTeamsMode = !isTapeworm && (config as WordGuessConfig).mode === "teams";
+
+	// Check teams validity for start (word-guess only)
+	const teams = (
+		!isTapeworm ? ((config as WordGuessConfig).teams ?? { a: [], b: [] }) : { a: [], b: [] }
+	) as Record<string, string[]>;
+	const teamsValid = !isTeamsMode || Object.values(teams).every((members) => members.length >= 2);
+	const canStartFinal = canStart && (!isTeamsMode || teamsValid);
+
+	const handleStart = () => {
+		send({ type: "startGame" });
+	};
+
+	const handleLeave = () => {
+		send({ type: "leaveRoom" });
+	};
+
+	const handleUpdateTeams = (updatedTeams: Record<string, string[]>) => {
+		send({
+			type: "updateSettings",
+			settings: {
+				gameConfig: { ...config, teams: updatedTeams },
+			},
+		});
+	};
+
+	const handleSettingsChange = (settings: Partial<RoomSettings>) => {
+		if (isTapeworm) {
+			send({ type: "updateSettings", settings });
+			return;
+		}
+
+		const wgConfig = config as WordGuessConfig;
+		const newConfig = {
+			...wgConfig,
+			...(settings.gameConfig as Partial<WordGuessConfig>),
+		};
+		// When switching to teams mode, initialize default teams
+		if (newConfig.mode === "teams" && !wgConfig.teams) {
+			const playerIds = room.players.map((p) => p.id);
+			const teamA = playerIds.filter((_, i) => i % 2 === 0);
+			const teamB = playerIds.filter((_, i) => i % 2 !== 0);
+			newConfig.teams = { a: teamA, b: teamB };
+		}
+		// Auto-apply recommended time/cycles
+		const recommended = getRecommendedSettings(room.players.length, newConfig.difficulty);
+		newConfig.roundTimeSeconds = recommended.roundTimeSeconds;
+		newConfig.cycles = recommended.cycles;
+
+		send({
+			type: "updateSettings",
+			settings: { gameConfig: newConfig },
+		});
+	};
+
+	const rosterMode = isTapeworm ? "ffa" : (config as WordGuessConfig).mode;
+
+	return (
+		<div className="screen">
+			<div className="lobby-header">
+				<h2>
+					<span className="game-badge-icon game-badge-icon--sm">
+						{GAME_META[room.settings.gameId]?.emoji}
+					</span>{" "}
+					Лобби
+				</h2>
+				<div
+					className={`room-code${codeCopied ? " copied" : ""}`}
+					onClick={copyFromCode}
+					title="Нажмите, чтобы скопировать ссылку"
+				>
+					<span className="room-code-label">{codeCopied ? "Ссылка скопирована!" : "Комната"}</span>
+					<span className="room-code-value">{room.code}</span>
+				</div>
+			</div>
+
+			<PlayerRoster
+				players={room.players}
+				currentPlayerId={playerId}
+				mode={rosterMode}
+				teams={teams}
+				isHost={isHost}
+				onUpdateTeams={handleUpdateTeams}
+				onSwitchTeam={(teamId) => send({ type: "switchTeam", teamId })}
+				onKick={
+					isHost ? (targetPlayerId) => send({ type: "kickPlayer", targetPlayerId }) : undefined
+				}
+			/>
+
+			<GameSettings
+				settings={room.settings}
+				isHost={isHost}
+				playerCount={room.players.length}
+				onUpdate={handleSettingsChange}
+			>
+				{isHost ? (
+					<button className="btn btn-primary" disabled={!canStartFinal} onClick={handleStart}>
+						{room.players.length < 2
+							? 2 - room.players.length === 1
+								? "Нужен ещё 1 игрок"
+								: "Нужно ещё 2 игрока"
+							: !allConnected
+								? "Не все игроки онлайн"
+								: isTeamsMode && !teamsValid
+									? "В каждой команде нужно минимум 2 игрока"
+									: "Начать игру"}
+					</button>
+				) : (
+					<div className="waiting-host">
+						<p className="waiting-host-text">
+							<span className="waiting-dots">
+								<span>.</span>
+								<span>.</span>
+								<span>.</span>
+							</span>
+							Ждём, когда{" "}
+							<strong>{room.players.find((p) => p.id === room!.hostId)?.name ?? "хост"}</strong>{" "}
+							начнёт игру
+						</p>
+					</div>
+				)}
+			</GameSettings>
+
+			<div className="lobby-actions">
+				<button className="btn btn-secondary" onClick={handleLeave}>
+					Выйти
+				</button>
+			</div>
+		</div>
+	);
+}

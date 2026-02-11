@@ -1,0 +1,179 @@
+/* =============================================
+   PlayerRoster
+   ============================================= */
+
+/* --- FFA Player List --- */
+
+.player-list {
+	list-style: none;
+	display: flex;
+	flex-direction: column;
+	gap: 0.375rem;
+}
+
+.player-list-item {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+}
+
+.player-list-item > .player-chip {
+	flex: 1;
+}
+
+.btn-kick {
+	width: 1.75rem;
+	height: 1.75rem;
+	border: none;
+	background: transparent;
+	color: var(--color-text-muted);
+	font-size: 0.875rem;
+	cursor: pointer;
+	border-radius: var(--radius-sm);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	transition:
+		color 0.15s,
+		background 0.15s;
+
+	&:hover {
+		color: var(--color-error);
+		background: var(--color-surface);
+	}
+}
+
+.player-status {
+	font-size: 0.75rem;
+	font-weight: 500;
+	color: var(--color-error);
+}
+
+/* --- Team Assignment --- */
+
+.team-assignment {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.team-assignment-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.team-columns {
+	display: flex;
+	gap: 0.75rem;
+}
+
+.team-column {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 0.375rem;
+}
+
+.team-column-header {
+	font-size: 0.6875rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--color-text-muted);
+	text-align: center;
+	height: 2.25rem;
+	padding: 0 0.5rem;
+	background: var(--color-surface);
+	border-radius: var(--radius-sm);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+}
+
+.team-column-players {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+.team-column-players--over {
+	background: var(--color-primary-glow);
+	border-radius: var(--radius-sm);
+}
+
+.team-player {
+	touch-action: none;
+	min-width: 0;
+}
+
+.team-player > .player-chip {
+	width: 100%;
+}
+
+.team-player--draggable {
+	cursor: grab;
+}
+
+.team-player--draggable:active {
+	cursor: grabbing;
+}
+
+.team-player--placeholder {
+	opacity: 0.3;
+}
+
+.team-player--dragging {
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+	cursor: grabbing;
+}
+
+.team-player--dragging > .player-chip {
+	background: var(--color-surface-raised);
+	border-color: var(--color-primary);
+}
+
+.team-column-empty {
+	padding: 0.75rem;
+	text-align: center;
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: var(--color-text-muted);
+	border: 1.5px dashed var(--color-border);
+	border-radius: var(--radius-sm);
+	opacity: 0.6;
+}
+
+.team-player-row {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+}
+
+.team-player-row > .team-player {
+	flex: 1;
+	min-width: 0;
+}
+
+.team-player-unassigned {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+}
+
+.team-player-unassigned .team-player {
+	flex: 1;
+}
+
+.team-assign-buttons {
+	display: flex;
+	gap: 0.25rem;
+}
+
+.team-unassigned {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}

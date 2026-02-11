@@ -1,0 +1,621 @@
+/* =============================================
+   Tapeworm Game
+   ============================================= */
+
+.tapeworm {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	min-height: 0;
+}
+
+/* --- Table Seating --- */
+
+.tapeworm-table {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.375rem;
+}
+
+.tapeworm-opponents {
+	display: flex;
+	gap: 0.375rem;
+	justify-content: center;
+	flex-wrap: wrap;
+	flex-shrink: 0;
+}
+
+.tapeworm-me {
+	display: flex;
+	justify-content: center;
+	flex-shrink: 0;
+}
+
+.tapeworm-table-board {
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+	display: flex;
+}
+
+.tapeworm-table-board > .tapeworm-board-container {
+	flex: 1;
+}
+
+/* --- Player Seat (card count badge) --- */
+
+.tapeworm-seat-cards {
+	font-family: var(--font-mono);
+	font-size: 0.6875rem;
+	font-weight: 700;
+	color: var(--color-text-muted);
+	background: var(--color-surface-hover);
+	padding: 0.125rem 0.375rem;
+	border-radius: var(--radius-pill);
+	min-width: 1.25rem;
+	text-align: center;
+}
+
+/* --- Status Bar --- */
+
+.tapeworm-status {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	font-size: 0.8125rem;
+	font-weight: 600;
+	color: var(--color-text-muted);
+	padding: 0.375rem 0.625rem;
+	background: var(--color-surface);
+	border-radius: var(--radius-pill);
+	flex-shrink: 0;
+}
+
+.tapeworm-deck-count {
+	font-family: var(--font-mono);
+	font-size: 0.6875rem;
+	font-weight: 700;
+	color: var(--color-text-muted);
+}
+
+.tapeworm-status-pass-btn {
+	padding: 0.25rem 0.75rem;
+	font-size: 0.75rem;
+	font-weight: 700;
+	flex-shrink: 0;
+}
+
+/* --- Board --- */
+
+.tapeworm-board-container {
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(255, 255, 255, 0.02);
+	border-radius: var(--radius-md);
+	border: 1.5px solid var(--color-border);
+	touch-action: none;
+	position: relative;
+	box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+.tapeworm-board {
+	transition: none;
+	transform-origin: center center;
+}
+
+/* --- Zoom Controls --- */
+
+.tapeworm-zoom-controls {
+	position: absolute;
+	bottom: 0.5rem;
+	right: 0.5rem;
+	display: flex;
+	gap: 2px;
+	z-index: 5;
+}
+
+.tapeworm-zoom-btn {
+	width: 2rem;
+	height: 2rem;
+	border: 1.5px solid var(--color-border);
+	border-radius: var(--radius-sm);
+	background: var(--color-surface);
+	color: var(--color-text);
+	font-size: 0.8125rem;
+	font-weight: 700;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	touch-action: manipulation;
+	transition: background 0.1s;
+}
+
+.tapeworm-zoom-btn:hover {
+	background: var(--color-surface-hover);
+}
+
+.tapeworm-zoom-btn:active {
+	transform: scale(0.9);
+}
+
+.tapeworm-cell {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.tapeworm-cell-valid {
+	cursor: pointer;
+	background: rgba(240, 160, 48, 0.08);
+	border: 1.5px dashed rgba(240, 160, 48, 0.3);
+	border-radius: 8px;
+	transition: all 0.15s;
+}
+
+.tapeworm-cell-valid:hover {
+	background: rgba(240, 160, 48, 0.15);
+	border-color: rgba(240, 160, 48, 0.5);
+}
+
+.tapeworm-cell-valid--active {
+	background: rgba(240, 160, 48, 0.2);
+	border-color: var(--color-primary);
+}
+
+.tapeworm-cell-plus {
+	font-size: 1.25rem;
+	font-weight: 700;
+	color: var(--color-primary);
+	opacity: 0.5;
+}
+
+/* --- Rotation Picker --- */
+
+.tapeworm-rotation-picker {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2px;
+	padding: 2px;
+}
+
+.tapeworm-rotation-btn {
+	flex: 1;
+	min-width: 28px;
+	padding: 2px;
+	background: var(--color-primary);
+	color: var(--color-primary-text);
+	border: none;
+	border-radius: 4px;
+	font-size: 0.5625rem;
+	font-weight: 800;
+	cursor: pointer;
+	transition: all 0.1s;
+}
+
+.tapeworm-rotation-btn:hover {
+	filter: brightness(1.1);
+}
+
+.tapeworm-rotation-btn:active {
+	transform: scale(0.9);
+}
+
+/* --- Hand --- */
+
+.tapeworm-hand {
+	display: flex;
+	gap: 0.5rem;
+	overflow-x: auto;
+	padding: 0.375rem 0;
+	flex-shrink: 0;
+
+	/* Center when cards fit, scroll from start when they overflow */
+	&::before,
+	&::after {
+		content: "";
+		margin: auto;
+	}
+}
+
+.tapeworm-hand-card {
+	position: relative;
+	flex-shrink: 0;
+	padding: 0.1875rem;
+	border: 2px solid transparent;
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	transition:
+		border-color 0.15s,
+		background 0.15s,
+		box-shadow 0.15s;
+}
+
+.tapeworm-hand-card:hover:not(.tapeworm-hand-card--disabled) {
+	border-color: var(--color-border);
+	background: var(--color-surface-hover);
+}
+
+.tapeworm-hand-card:active:not(.tapeworm-hand-card--disabled) {
+	transform: scale(0.93);
+}
+
+.tapeworm-hand-card-inner {
+	line-height: 0;
+}
+
+.tapeworm-hand-card--selected {
+	border-color: var(--color-primary);
+	background: rgba(240, 160, 48, 0.1);
+	box-shadow: 0 2px 12px var(--color-primary-glow);
+}
+
+.tapeworm-hand-card--disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.tapeworm-hand-card--dragging {
+	opacity: 0.3;
+}
+
+/* Card entrance animation (draw from deck) */
+.tapeworm-hand-card--entering {
+	animation:
+		card-enter 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+		card-glow 0.8s ease-out;
+}
+
+@keyframes card-enter {
+	from {
+		opacity: 0;
+		transform: translateY(-60px) scale(0.6);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes card-glow {
+	0% {
+		box-shadow: 0 0 0 0 rgba(240, 160, 48, 0);
+	}
+	30% {
+		box-shadow: 0 0 16px 4px rgba(240, 160, 48, 0.5);
+	}
+	100% {
+		box-shadow: 0 0 0 0 rgba(240, 160, 48, 0);
+	}
+}
+
+/* Card exit: discard (DIG, ringworm) */
+.tapeworm-hand-card--discard-exit {
+	animation: card-discard-exit 0.25s ease-in forwards;
+	pointer-events: none;
+}
+
+@keyframes card-discard-exit {
+	to {
+		opacity: 0;
+		transform: translateY(30px) scale(0.7);
+	}
+}
+
+/* Card exit: return to deck (PEEK) */
+.tapeworm-hand-card--return-exit {
+	animation: card-return-exit 0.3s ease-in forwards;
+	pointer-events: none;
+}
+
+@keyframes card-return-exit {
+	to {
+		opacity: 0;
+		transform: translateY(-50px) scale(0.8);
+	}
+}
+
+.tapeworm-hand-card--discard {
+	border-color: #e84545;
+	background: rgba(232, 69, 69, 0.12);
+	box-shadow: 0 2px 12px rgba(232, 69, 69, 0.3);
+}
+
+/* --- Rotate Button --- */
+
+.tapeworm-rotate-btn {
+	position: absolute;
+	top: -6px;
+	right: -6px;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	border: none;
+	background: var(--color-primary);
+	color: var(--color-primary-text);
+	font-size: 14px;
+	font-weight: 700;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	touch-action: manipulation;
+	z-index: 1;
+	transition: transform 0.1s;
+}
+
+.tapeworm-rotate-btn:hover {
+	transform: scale(1.15);
+}
+
+.tapeworm-rotate-btn:active {
+	transform: scale(0.9);
+}
+
+/* --- DnD --- */
+
+.tapeworm-cell-valid--over {
+	background: rgba(240, 160, 48, 0.25);
+	border-color: var(--color-primary);
+	border-style: solid;
+	box-shadow: 0 0 12px var(--color-primary-glow);
+}
+
+.tapeworm-drag-overlay {
+	cursor: grabbing;
+}
+
+/* --- Controls --- */
+
+.tapeworm-controls {
+	display: flex;
+	gap: 0.5rem;
+	flex-shrink: 0;
+}
+
+.tapeworm-btn {
+	flex: 1;
+}
+
+/* --- Game Over --- */
+
+.tapeworm-gameover {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 1.5rem;
+}
+
+.tapeworm-gameover-winner {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.tapeworm-gameover-winner-name {
+	font-size: 1.25rem;
+	font-weight: 800;
+	color: var(--color-text);
+}
+
+.tapeworm-gameover-winner-label {
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: var(--color-primary);
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+}
+
+.tapeworm-gameover-standings {
+	display: flex;
+	flex-direction: column;
+	gap: 0.375rem;
+	width: 100%;
+	max-width: 300px;
+}
+
+.tapeworm-gameover-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.5rem 0.75rem;
+	background: var(--color-surface);
+	border-radius: var(--radius-sm);
+	font-size: 0.875rem;
+	font-weight: 500;
+}
+
+.tapeworm-gameover-row--winner {
+	border: 1.5px solid var(--color-primary);
+	background: rgba(240, 160, 48, 0.08);
+}
+
+.tapeworm-gameover-rank {
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	font-weight: 800;
+	color: var(--color-text-muted);
+	width: 1.25rem;
+	text-align: center;
+}
+
+.tapeworm-gameover-name {
+	flex: 1;
+	font-weight: 600;
+}
+
+.tapeworm-gameover-cards {
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	font-weight: 700;
+	color: var(--color-text-muted);
+}
+
+/* --- Property Resolution Panels --- */
+
+.tapeworm-property-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	padding: 0.75rem;
+	background: var(--color-surface);
+	border: 1.5px solid var(--color-border);
+	border-radius: var(--radius-md);
+}
+
+.tapeworm-property-instruction {
+	font-size: 0.8125rem;
+	font-weight: 600;
+	color: var(--color-text);
+	text-align: center;
+}
+
+.tapeworm-hand-card--pickable {
+	cursor: pointer;
+	border-color: transparent;
+	transition: all 0.15s;
+}
+
+.tapeworm-hand-card--pickable:hover {
+	border-color: var(--color-primary);
+	background: rgba(240, 160, 48, 0.1);
+	box-shadow: 0 2px 12px var(--color-primary-glow);
+}
+
+.tapeworm-hand-card--pickable:active {
+	transform: scale(0.93);
+}
+
+/* --- Player Picker --- */
+
+.tapeworm-player-picker {
+	display: flex;
+	gap: 0.5rem;
+	justify-content: center;
+	flex-wrap: wrap;
+}
+
+.tapeworm-player-pick-btn {
+	min-width: 80px;
+}
+
+/* --- Card Popover --- */
+
+.tapeworm-popover-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 50;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.7);
+	backdrop-filter: blur(4px);
+	-webkit-backdrop-filter: blur(4px);
+	animation: popover-fade-in 0.15s ease-out;
+}
+
+@keyframes popover-fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+.tapeworm-popover {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 1rem;
+	padding: 1.5rem;
+	background: var(--color-surface);
+	border: 1.5px solid var(--color-border);
+	border-radius: var(--radius-lg);
+	max-width: 260px;
+	animation: popover-scale-in 0.15s ease-out;
+}
+
+@keyframes popover-scale-in {
+	from {
+		transform: scale(0.9);
+		opacity: 0;
+	}
+	to {
+		transform: scale(1);
+		opacity: 1;
+	}
+}
+
+.tapeworm-popover-desc {
+	display: flex;
+	gap: 0.625rem;
+	align-items: flex-start;
+	width: 100%;
+}
+
+.tapeworm-popover-icon {
+	font-size: 1.25rem;
+	flex-shrink: 0;
+	line-height: 1;
+	margin-top: 0.125rem;
+}
+
+.tapeworm-popover-trait {
+	font-size: 0.875rem;
+	font-weight: 700;
+	color: var(--color-text);
+}
+
+.tapeworm-popover-x2 {
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	font-weight: 800;
+	color: var(--color-primary);
+	margin-left: 0.25rem;
+}
+
+.tapeworm-popover-text {
+	font-size: 0.75rem;
+	font-weight: 500;
+	color: var(--color-text-muted);
+	line-height: 1.4;
+	margin-top: 0.125rem;
+}
+
+/* --- CUT Target --- */
+
+.tapeworm-cut-target {
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	border: 2px solid #e84545;
+	background: rgba(232, 69, 69, 0.15);
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 14px;
+	z-index: 10;
+	transition: all 0.15s;
+}
+
+.tapeworm-cut-target:hover {
+	background: rgba(232, 69, 69, 0.35);
+	border-color: #ff5555;
+	transform: scale(1.2);
+}
+
+.tapeworm-cut-target:active {
+	transform: scale(0.9);
+}

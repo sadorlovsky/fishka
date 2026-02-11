@@ -1,0 +1,336 @@
+.home-screen {
+	justify-content: center;
+	align-items: center;
+	position: relative;
+}
+
+/* Emoji pattern background */
+
+.home-pattern {
+	position: fixed;
+	inset: -30%;
+	background-repeat: repeat;
+	background-size: 120px 120px;
+	opacity: 0.06;
+	transform: rotate(-15deg);
+	pointer-events: none;
+	z-index: 0;
+	filter: blur(2px);
+}
+
+.home-screen > *:not(.home-pattern) {
+	position: relative;
+	z-index: 1;
+}
+
+/* Brand */
+
+.home-brand {
+	text-align: center;
+	margin-bottom: 0.5rem;
+}
+
+.home-title {
+	font-size: 2.5rem;
+	font-weight: 900;
+	letter-spacing: -0.03em;
+	color: var(--color-text);
+	margin-bottom: 0;
+	background: linear-gradient(135deg, var(--color-text) 30%, var(--color-primary) 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+.home-subtitle {
+	font-size: 0.875rem;
+	font-weight: 500;
+	color: var(--color-text-muted);
+	letter-spacing: 0.02em;
+	margin-top: 0.125rem;
+}
+
+/* Player identity */
+
+.player-identity {
+	display: flex;
+	align-items: stretch;
+	gap: 0.625rem;
+	padding: 0.625rem;
+	background: var(--color-surface);
+	border: 1.5px solid var(--color-border);
+	border-radius: var(--radius-md);
+	position: relative;
+	width: 100%;
+}
+
+.player-identity::before {
+	content: "Вы";
+	position: absolute;
+	top: 0;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	font-size: 0.5625rem;
+	font-weight: 800;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	color: var(--color-text-muted);
+	background: var(--color-bg);
+	padding: 0.125rem 0.5rem;
+	border-radius: var(--radius-pill);
+	line-height: 1.2;
+}
+
+.player-identity .avatar {
+	width: 2.75rem;
+	height: auto;
+	aspect-ratio: 1;
+	align-self: center;
+}
+
+.player-identity-input {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	background: var(--color-surface-hover);
+	border: 1.5px solid transparent;
+	border-radius: var(--radius-sm);
+	transition: border-color 0.2s;
+}
+
+.player-identity-input:focus-within {
+	border-color: var(--color-primary);
+}
+
+.player-identity-prefix {
+	font-size: 0.6875rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--color-text-muted);
+	padding-left: 0.75rem;
+	flex-shrink: 0;
+	user-select: none;
+	line-height: 1;
+}
+
+.player-identity-input .input {
+	flex: 1;
+	padding: 0.5rem 0.75rem;
+	background: transparent;
+	border: none;
+	min-height: unset;
+	font-size: 0.9375rem;
+	line-height: 1;
+}
+
+.player-identity-input .input:focus {
+	box-shadow: none;
+}
+
+/* Game selector */
+
+.game-selector {
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	gap: 1rem;
+	flex-wrap: wrap;
+}
+
+.game-selector-item {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.375rem;
+}
+
+.game-selector-name {
+	font-size: 0.6875rem;
+	font-weight: 700;
+	color: var(--color-text-muted);
+	letter-spacing: 0.02em;
+	transition: color 0.2s;
+}
+
+.game-selector-name--active {
+	color: var(--color-primary);
+}
+
+.game-logo {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+	width: 3rem;
+	height: 3rem;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+	border-radius: var(--radius-md);
+	transition:
+		opacity 0.2s,
+		transform 0.15s,
+		box-shadow 0.2s;
+	background: linear-gradient(135deg, rgba(240, 160, 48, 0.15) 0%, rgba(180, 100, 255, 0.12) 100%);
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+	box-shadow:
+		inset 0 0 0 1.5px rgba(240, 160, 48, 0.3),
+		inset 0 0 0 1.5px rgba(180, 100, 255, 0.15),
+		0 4px 16px rgba(240, 160, 48, 0.08);
+	user-select: none;
+}
+
+.game-logo:active:not(:disabled) {
+	transform: scale(0.93);
+}
+
+/* Shimmer */
+.game-logo::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: linear-gradient(
+		135deg,
+		rgba(255, 255, 255, 0.08) 0%,
+		transparent 50%,
+		rgba(240, 160, 48, 0.05) 100%
+	);
+	pointer-events: none;
+}
+
+/* Glow ring */
+.game-logo::after {
+	content: "";
+	position: absolute;
+	inset: -2px;
+	border-radius: calc(var(--radius-md) + 2px);
+	background: linear-gradient(
+		135deg,
+		rgba(240, 160, 48, 0.4),
+		rgba(180, 100, 255, 0.3),
+		rgba(240, 160, 48, 0.2)
+	);
+	z-index: -1;
+	mask:
+		linear-gradient(#fff 0 0) content-box,
+		linear-gradient(#fff 0 0);
+	mask-composite: exclude;
+	-webkit-mask:
+		linear-gradient(#fff 0 0) content-box,
+		linear-gradient(#fff 0 0);
+	-webkit-mask-composite: xor;
+	padding: 1.5px;
+}
+
+.game-logo-emoji {
+	font-size: 1.5rem;
+	line-height: 1;
+}
+
+.game-logo-label {
+	position: absolute;
+	font-family: var(--font-sans);
+	font-size: 0.375rem;
+	font-weight: 900;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: #fff;
+	text-shadow:
+		0 1px 3px rgba(0, 0, 0, 0.6),
+		0 0 12px rgba(240, 160, 48, 0.4);
+	pointer-events: none;
+}
+
+.game-logo--selected {
+	opacity: 1;
+	box-shadow:
+		inset 0 0 0 1.5px rgba(240, 160, 48, 0.3),
+		inset 0 0 0 1.5px rgba(180, 100, 255, 0.15),
+		0 4px 16px rgba(240, 160, 48, 0.08),
+		0 0 20px rgba(240, 160, 48, 0.12);
+}
+
+.game-logo--dimmed {
+	box-shadow:
+		inset 0 0 0 1.5px rgba(255, 255, 255, 0.06),
+		0 2px 8px rgba(0, 0, 0, 0.1);
+	background: rgba(28, 25, 34, 0.75);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+}
+
+.game-logo--dimmed::before,
+.game-logo--dimmed::after {
+	display: none;
+}
+
+.game-logo--dimmed .game-logo-emoji {
+	opacity: 0.3;
+}
+
+.game-logo--dimmed .game-logo-label {
+	opacity: 0.3;
+	text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.game-logo--coming-soon {
+	filter: grayscale(1);
+	box-shadow:
+		inset 0 0 0 1.5px rgba(255, 255, 255, 0.04),
+		0 2px 8px rgba(0, 0, 0, 0.06);
+	background: rgba(28, 25, 34, 0.75);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	cursor: not-allowed;
+}
+
+.game-logo--coming-soon::before,
+.game-logo--coming-soon::after {
+	display: none;
+}
+
+.game-logo--coming-soon .game-logo-emoji {
+	opacity: 0.25;
+}
+
+.game-logo--coming-soon .game-logo-label {
+	display: none;
+}
+
+.game-logo-soon {
+	position: absolute;
+	bottom: -0.25rem;
+	left: 50%;
+	transform: translateX(-50%);
+	font-family: var(--font-sans);
+	font-size: 0.5rem;
+	font-weight: 800;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--color-text-muted);
+	background: var(--color-bg);
+	border: 1px solid var(--color-border);
+	padding: 0.0625rem 0.3rem;
+	border-radius: var(--radius-pill);
+	white-space: nowrap;
+	line-height: 1.3;
+	z-index: 1;
+}
+
+.game-logo:disabled {
+	cursor: not-allowed;
+}
+
+/* Divider */
+
+.home-divider {
+	font-size: 0.5625rem;
+	font-weight: 800;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	color: var(--color-text-muted);
+	text-align: center;
+}

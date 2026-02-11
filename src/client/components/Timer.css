@@ -1,0 +1,38 @@
+.timer {
+	display: flex;
+	align-items: baseline;
+	gap: 0.25rem;
+	padding: 0.5rem 1.25rem;
+	background: var(--color-surface);
+	border-radius: var(--radius-pill);
+	border: 1.5px solid var(--color-border);
+}
+
+.timer-value {
+	font-family: var(--font-mono);
+	font-size: 1.5rem;
+	font-weight: 700;
+	min-width: 2ch;
+	text-align: center;
+}
+
+.timer-label {
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: var(--color-text-muted);
+}
+
+.timer--urgent .timer-value {
+	color: var(--color-error);
+	animation: timer-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes timer-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+}

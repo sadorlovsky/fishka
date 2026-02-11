@@ -1,0 +1,124 @@
+/* =============================================
+   Word Guess Game
+   ============================================= */
+
+.word-guess {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+}
+
+.game-role-view {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 1rem;
+}
+
+.role-label {
+	font-size: 0.8125rem;
+	font-weight: 800;
+	text-transform: uppercase;
+	letter-spacing: 0.12em;
+	color: var(--color-primary);
+}
+
+.word-card {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	min-height: 130px;
+	padding: 1.5rem;
+	background: var(--color-surface);
+	border: 2px solid var(--color-primary);
+	border-radius: var(--radius-lg);
+	box-shadow:
+		0 0 0 1px var(--color-primary-glow),
+		0 8px 32px rgba(240, 160, 48, 0.08);
+	position: relative;
+	overflow: hidden;
+}
+
+.word-card::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: radial-gradient(circle at 50% 0%, var(--color-primary-glow) 0%, transparent 60%);
+	pointer-events: none;
+}
+
+.word-card-hidden {
+	border-color: var(--color-border);
+	border-style: dashed;
+	box-shadow: none;
+}
+
+.word-card-hidden::before {
+	display: none;
+}
+
+.word-text {
+	font-size: 2rem;
+	font-weight: 800;
+	text-align: center;
+	word-break: break-word;
+	position: relative;
+}
+
+.hint-text {
+	color: var(--color-text-muted);
+	font-size: 0.875rem;
+	font-weight: 500;
+	text-align: center;
+}
+
+.guess-form {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	width: 100%;
+}
+
+/* =============================================
+   Round counters
+   ============================================= */
+
+.round-counters {
+	display: flex;
+	gap: 1rem;
+	font-size: 0.875rem;
+	font-weight: 600;
+}
+
+.counter-correct {
+	color: var(--color-success);
+}
+
+.counter-skip {
+	color: var(--color-error);
+}
+
+/* =============================================
+   Guesser picker (ExplainerView FFA)
+   ============================================= */
+
+.guesser-picker {
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.guesser-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
+.guesser-buttons .btn {
+	flex: 1;
+	min-width: 120px;
+}
