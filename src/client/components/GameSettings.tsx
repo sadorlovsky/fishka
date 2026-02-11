@@ -185,7 +185,8 @@ function CrocodileSettings({
 		return (
 			<div className="game-settings">
 				<p className="settings-summary">
-					Режим: Жесты · Слова: {DIFFICULTY_LABELS[String(config.difficulty)]}
+					Режим: {config.mode === "gestures" ? "Жесты" : "Рисование"} · Слова:{" "}
+					{DIFFICULTY_LABELS[String(config.difficulty)]}
 				</p>
 				<p className="settings-summary">
 					{plural(config.roundTimeSeconds, "секунда", "секунды", "секунд")} на раунд ·{" "}
@@ -200,6 +201,21 @@ function CrocodileSettings({
 	return (
 		<div className="game-settings">
 			<h3 className="settings-title">Настройки игры</h3>
+
+			<div className="settings-group">
+				<span className="settings-label">Режим</span>
+				<div className="settings-options">
+					<button
+						className={`settings-option${config.mode === "gestures" ? " settings-option--active" : ""}`}
+						onClick={() => updateConfig({ mode: "gestures" })}
+					>
+						Жесты
+					</button>
+					<button className="settings-option" disabled title="Скоро">
+						Рисование
+					</button>
+				</div>
+			</div>
 
 			<div className="settings-group">
 				<span className="settings-label">Сложность слов</span>

@@ -7,7 +7,10 @@ export type CrocodileDifficulty = 1 | 2 | 3 | "all";
 
 // --- Config (lobby settings -> passed to createInitialState) ---
 
+export type CrocodileMode = "gestures" | "drawing";
+
 export interface CrocodileConfig {
+	mode: CrocodileMode;
 	roundTimeSeconds: number;
 	cycles: number;
 	wordLanguage: "ru" | "en";
@@ -15,6 +18,7 @@ export interface CrocodileConfig {
 }
 
 export const DEFAULT_CROCODILE_CONFIG: CrocodileConfig = {
+	mode: "gestures",
 	roundTimeSeconds: 60,
 	cycles: 1,
 	wordLanguage: "ru",
