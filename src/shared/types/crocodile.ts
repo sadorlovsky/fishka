@@ -38,6 +38,7 @@ export interface CrocodilePlayerState {
 
 export interface CrocodileState {
 	phase: CrocodilePhase;
+	mode: CrocodileMode;
 
 	currentRound: number;
 	totalRounds: number;
@@ -61,6 +62,7 @@ export interface CrocodileState {
 
 export interface CrocodilePlayerView {
 	phase: CrocodilePhase;
+	mode: CrocodileMode;
 
 	currentRound: number;
 	totalRounds: number;

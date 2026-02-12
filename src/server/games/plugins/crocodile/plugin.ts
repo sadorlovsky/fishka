@@ -51,6 +51,7 @@ export const crocodilePlugin: GamePlugin<CrocodileState, CrocodileAction, Crocod
 
 		return {
 			phase: "starting",
+			mode: merged.mode,
 			currentRound: 1,
 			totalRounds: showerOrder.length,
 			showerOrder,
@@ -195,6 +196,7 @@ export const crocodilePlugin: GamePlugin<CrocodileState, CrocodileAction, Crocod
 
 		return {
 			phase: state.phase,
+			mode: state.mode,
 			currentRound: state.currentRound,
 			totalRounds: state.totalRounds,
 			currentShowerId: state.currentShowerId,
@@ -209,6 +211,7 @@ export const crocodilePlugin: GamePlugin<CrocodileState, CrocodileAction, Crocod
 	getSpectatorView(state: CrocodileState): CrocodilePlayerView {
 		return {
 			phase: state.phase,
+			mode: state.mode,
 			currentRound: state.currentRound,
 			totalRounds: state.totalRounds,
 			currentShowerId: state.currentShowerId,

@@ -34,7 +34,15 @@ export function StartingOverlay({ state }: StartingOverlayProps) {
 				<PlayerChip
 					avatarSeed={shower.avatarSeed}
 					name={shower.name}
-					subtitle={state.isShower ? "вы показываете" : "показывает"}
+					subtitle={
+						state.isShower
+							? state.mode === "drawing"
+								? "вы рисуете"
+								: "вы показываете"
+							: state.mode === "drawing"
+								? "рисует"
+								: "показывает"
+					}
 				/>
 			)}
 			<p className="starting-overlay-countdown">{secondsLeft}</p>

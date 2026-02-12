@@ -22,7 +22,13 @@ export function ScoreBoard({ state, currentPlayerId }: ScoreBoardProps) {
 						name={player.name}
 						isMe={player.id === currentPlayerId}
 						isCurrent={player.id === currentPlayerId}
-						subtitle={player.id === state.currentShowerId ? "показывает" : undefined}
+						subtitle={
+							player.id === state.currentShowerId
+								? state.mode === "drawing"
+									? "рисует"
+									: "показывает"
+								: undefined
+						}
 					>
 						<span className="scoreboard-score">{player.score}</span>
 					</PlayerChip>

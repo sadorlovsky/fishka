@@ -211,7 +211,10 @@ function CrocodileSettings({
 					>
 						Жесты
 					</button>
-					<button className="settings-option" disabled title="Скоро">
+					<button
+						className={`settings-option${config.mode === "drawing" ? " settings-option--active" : ""}`}
+						onClick={() => updateConfig({ mode: "drawing" })}
+					>
 						Рисование
 					</button>
 				</div>

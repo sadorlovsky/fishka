@@ -69,6 +69,9 @@ function sanitizeGameConfig(
 			sanitized.handSize = clamp(config.handSize, 3, 8, 5);
 		}
 	} else if (gameId === "crocodile") {
+		if ("mode" in config) {
+			sanitized.mode = config.mode === "drawing" ? "drawing" : "gestures";
+		}
 		if ("roundTimeSeconds" in config) {
 			sanitized.roundTimeSeconds = clamp(config.roundTimeSeconds, 30, 180, 60);
 		}
