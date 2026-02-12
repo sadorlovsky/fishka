@@ -1,6 +1,12 @@
 import { useDroppable } from "@dnd-kit/core";
-import { useCallback, useMemo, useRef, useState } from "react";
-import type { CardDefinition, PlacedCard, Rotation, ValidPlacement } from "@/shared/types/tapeworm";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type {
+	CardDefinition,
+	CutTarget,
+	PlacedCard,
+	Rotation,
+	ValidPlacement,
+} from "@/shared/types/tapeworm";
 import { CardView } from "./CardView";
 
 const CELL_SIZE = 72;
@@ -19,6 +25,8 @@ interface BoardProps {
 	dragRotation: Rotation;
 	activeCard: CardDefinition | null;
 	onPlaceTile: (x: number, y: number, rotation: Rotation) => void;
+	cutTargets?: CutTarget[];
+	onCut?: (x: number, y: number, direction: string) => void;
 }
 
 function parseKey(key: string): { x: number; y: number } {
@@ -96,6 +104,13 @@ function DroppableCell({
 	);
 }
 
+const DIRECTION_OFFSETS: Record<string, { dx: number; dy: number }> = {
+	top: { dx: 0, dy: -0.5 },
+	right: { dx: 0.5, dy: 0 },
+	bottom: { dx: 0, dy: 0.5 },
+	left: { dx: -0.5, dy: 0 },
+};
+
 export function Board({
 	board,
 	validPlacements,
@@ -104,19 +119,34 @@ export function Board({
 	dragRotation,
 	activeCard,
 	onPlaceTile,
+	cutTargets,
+	onCut,
 }: BoardProps) {
-	// Pan + zoom state
-	const [offset, setOffset] = useState({ x: 0, y: 0 });
-	const [scale, setScale] = useState(1);
-	const [panning, setPanning] = useState(false);
-	const dragStart = useRef<{
-		x: number;
-		y: number;
-		ox: number;
-		oy: number;
-	} | null>(null);
+	// ── Transform state ──
+	// Live transform values live in refs (mutated directly on the DOM for 60fps).
+	// React state is only used for the zoom-% label and button handlers.
+	const transform = useRef({ x: 0, y: 0, scale: 1 });
+	const boardRef = useRef<HTMLDivElement>(null);
+	const containerRef = useRef<HTMLDivElement>(null);
+	const [scaleDisplay, setScaleDisplay] = useState(1);
 
-	// Pinch-zoom tracking
+	const applyTransform = useCallback(() => {
+		const el = boardRef.current;
+		if (el) {
+			const { x, y, scale } = transform.current;
+			el.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+		}
+	}, []);
+
+	const commitScale = useCallback(() => {
+		setScaleDisplay(transform.current.scale);
+	}, []);
+
+	// ── Pan state ──
+	const panningRef = useRef(false);
+	const dragStart = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+
+	// ── Pinch-zoom tracking ──
 	const pointersRef = useRef(new Map<number, { x: number; y: number }>());
 	const pinchStartRef = useRef<{
 		dist: number;
@@ -133,9 +163,6 @@ export function Board({
 		y: number;
 		rotations: Rotation[];
 	} | null>(null);
-
-	// Container ref for coordinate calculations
-	const containerRef = useRef<HTMLDivElement>(null);
 
 	// Compute board bounds
 	const allKeys = useMemo(() => {
@@ -183,68 +210,63 @@ export function Board({
 		return map;
 	}, [validPlacements]);
 
-	// --- Pointer handlers: pan (1 finger) + pinch-zoom (2 fingers) ---
+	// ── Pointer handlers: pan (1 finger) + pinch-zoom (2 fingers) ──
+	// All use refs → DOM mutation, zero React re-renders during gestures.
 
-	const handlePointerDown = useCallback(
-		(e: React.PointerEvent) => {
-			if (isDragging) {
-				return;
-			}
+	const isDraggingRef = useRef(isDragging);
+	isDraggingRef.current = isDragging;
 
-			pointersRef.current.set(e.pointerId, {
-				x: e.clientX,
-				y: e.clientY,
-			});
+	const handlePointerDown = useCallback((e: React.PointerEvent) => {
+		if (isDraggingRef.current) {
+			return;
+		}
 
-			if (pointersRef.current.size === 2) {
-				// Second finger down — start pinch, cancel any pan
-				setPanning(false);
-				dragStart.current = null;
+		pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-				const pts = Array.from(pointersRef.current.values());
-				const dx = pts[1]!.x - pts[0]!.x;
-				const dy = pts[1]!.y - pts[0]!.y;
-				const dist = Math.sqrt(dx * dx + dy * dy);
-				const midX = (pts[0]!.x + pts[1]!.x) / 2;
-				const midY = (pts[0]!.y + pts[1]!.y) / 2;
-				pinchStartRef.current = {
-					dist,
-					scale,
-					midX,
-					midY,
-					ox: offset.x,
-					oy: offset.y,
-				};
-				return;
-			}
+		if (pointersRef.current.size === 2) {
+			// Second finger → start pinch, cancel pan
+			panningRef.current = false;
+			dragStart.current = null;
 
-			// Single finger — start pan (skip if on interactive elements)
-			if (
-				(e.target as HTMLElement).closest(
-					".tapeworm-cell-card, .tapeworm-cell-valid, .tapeworm-rotation-picker, .tapeworm-zoom-controls",
-				)
-			) {
-				return;
-			}
-
-			setPanning(true);
-			dragStart.current = {
-				x: e.clientX,
-				y: e.clientY,
-				ox: offset.x,
-				oy: offset.y,
+			const pts = Array.from(pointersRef.current.values());
+			const dx = pts[1]!.x - pts[0]!.x;
+			const dy = pts[1]!.y - pts[0]!.y;
+			const dist = Math.sqrt(dx * dx + dy * dy);
+			const midX = (pts[0]!.x + pts[1]!.x) / 2;
+			const midY = (pts[0]!.y + pts[1]!.y) / 2;
+			pinchStartRef.current = {
+				dist,
+				scale: transform.current.scale,
+				midX,
+				midY,
+				ox: transform.current.x,
+				oy: transform.current.y,
 			};
-			(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-		},
-		[offset, scale, isDragging],
-	);
+			return;
+		}
+
+		// Single finger — start pan (skip interactive UI elements)
+		if (
+			(e.target as HTMLElement).closest(
+				".tapeworm-cell-valid, .tapeworm-rotation-picker, .tapeworm-zoom-controls",
+			)
+		) {
+			return;
+		}
+
+		panningRef.current = true;
+		dragStart.current = {
+			x: e.clientX,
+			y: e.clientY,
+			ox: transform.current.x,
+			oy: transform.current.y,
+		};
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+	}, []);
 
 	const handlePointerMove = useCallback(
 		(e: React.PointerEvent) => {
-			pointersRef.current.set(e.pointerId, {
-				x: e.clientX,
-				y: e.clientY,
-			});
+			pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
 			// Pinch zoom (2 fingers)
 			if (pointersRef.current.size === 2 && pinchStartRef.current) {
@@ -255,89 +277,100 @@ export function Board({
 				const pinch = pinchStartRef.current;
 
 				const newScale = clampScale(pinch.scale * (dist / pinch.dist));
-
-				// Pan so that the midpoint stays fixed
 				const midX = (pts[0]!.x + pts[1]!.x) / 2;
 				const midY = (pts[0]!.y + pts[1]!.y) / 2;
-				const dmx = midX - pinch.midX;
-				const dmy = midY - pinch.midY;
 
-				setScale(newScale);
-				setOffset({
-					x: pinch.ox + dmx,
-					y: pinch.oy + dmy,
-				});
+				transform.current.scale = newScale;
+				transform.current.x = pinch.ox + (midX - pinch.midX);
+				transform.current.y = pinch.oy + (midY - pinch.midY);
+				applyTransform();
 				return;
 			}
 
 			// Single-finger pan
-			if (!panning || !dragStart.current) {
+			if (!panningRef.current || !dragStart.current) {
 				return;
 			}
-			const dx2 = e.clientX - dragStart.current.x;
-			const dy2 = e.clientY - dragStart.current.y;
-			setOffset({
-				x: dragStart.current.ox + dx2,
-				y: dragStart.current.oy + dy2,
-			});
+			transform.current.x = dragStart.current.ox + (e.clientX - dragStart.current.x);
+			transform.current.y = dragStart.current.oy + (e.clientY - dragStart.current.y);
+			applyTransform();
 		},
-		[panning],
+		[applyTransform],
 	);
 
-	const handlePointerUp = useCallback((e: React.PointerEvent) => {
-		pointersRef.current.delete(e.pointerId);
-		if (pointersRef.current.size < 2) {
-			pinchStartRef.current = null;
-		}
-		if (pointersRef.current.size === 0) {
-			setPanning(false);
-			dragStart.current = null;
-		}
-	}, []);
-
-	// Mouse wheel zoom
-	const handleWheel = useCallback(
-		(e: React.WheelEvent) => {
-			if (isDragging) {
-				return;
+	const handlePointerUp = useCallback(
+		(e: React.PointerEvent) => {
+			pointersRef.current.delete(e.pointerId);
+			if (pointersRef.current.size < 2) {
+				if (pinchStartRef.current) {
+					pinchStartRef.current = null;
+					commitScale();
+				}
 			}
+			if (pointersRef.current.size === 0) {
+				panningRef.current = false;
+				dragStart.current = null;
+			}
+		},
+		[commitScale],
+	);
+
+	// ── Mouse wheel zoom (non-passive to preventDefault) ──
+
+	useEffect(() => {
+		const el = containerRef.current;
+		if (!el) {
+			return;
+		}
+
+		const handleWheel = (e: WheelEvent) => {
+			e.preventDefault();
 			e.stopPropagation();
 
-			const rect = containerRef.current?.getBoundingClientRect();
-			if (!rect) {
+			if (isDraggingRef.current) {
 				return;
 			}
 
-			// Zoom centered on cursor position
+			const rect = el.getBoundingClientRect();
 			const cursorX = e.clientX - rect.left - rect.width / 2;
 			const cursorY = e.clientY - rect.top - rect.height / 2;
 
-			const direction = e.deltaY > 0 ? -1 : 1;
-			const newScale = clampScale(scale + direction * ZOOM_STEP);
-			const factor = newScale / scale;
+			const zoomIntensity = 0.002;
+			const delta = -e.deltaY * zoomIntensity;
+			const oldScale = transform.current.scale;
+			const newScale = clampScale(oldScale * (1 + delta));
+			const factor = newScale / oldScale;
 
-			setScale(newScale);
-			setOffset({
-				x: cursorX + factor * (offset.x - cursorX),
-				y: cursorY + factor * (offset.y - cursorY),
-			});
-		},
-		[scale, offset, isDragging],
-	);
+			transform.current.scale = newScale;
+			transform.current.x = cursorX + factor * (transform.current.x - cursorX);
+			transform.current.y = cursorY + factor * (transform.current.y - cursorY);
+			applyTransform();
+			commitScale();
+		};
 
-	// Zoom button handlers
+		el.addEventListener("wheel", handleWheel, { passive: false });
+		return () => el.removeEventListener("wheel", handleWheel);
+	}, [applyTransform, commitScale]);
+
+	// ── Zoom button handlers ──
+
 	const zoomIn = useCallback(() => {
-		setScale((s) => clampScale(s + ZOOM_STEP));
-	}, []);
+		transform.current.scale = clampScale(transform.current.scale + ZOOM_STEP);
+		applyTransform();
+		commitScale();
+	}, [applyTransform, commitScale]);
 
 	const zoomOut = useCallback(() => {
-		setScale((s) => clampScale(s - ZOOM_STEP));
-	}, []);
+		transform.current.scale = clampScale(transform.current.scale - ZOOM_STEP);
+		applyTransform();
+		commitScale();
+	}, [applyTransform, commitScale]);
 
 	const zoomReset = useCallback(() => {
-		setScale(1);
-		setOffset({ x: 0, y: 0 });
-	}, []);
+		transform.current = { x: 0, y: 0, scale: 1 };
+		applyTransform();
+		commitScale();
+	}, [applyTransform, commitScale]);
 
 	const handleValidClick = useCallback(
 		(x: number, y: number, rotations: Rotation[]) => {
@@ -368,7 +401,8 @@ export function Board({
 	const boardWidth = (bounds.maxX - bounds.minX + 1) * CELL_STEP;
 	const boardHeight = (bounds.maxY - bounds.minY + 1) * CELL_STEP;
 
-	const showValidCells = !!activeCardId;
+	const showValidCells = !!activeCardId && !cutTargets?.length;
+	const showCutTargets = !!(cutTargets?.length && onCut);
 
 	return (
 		<div
@@ -378,15 +412,15 @@ export function Board({
 			onPointerMove={handlePointerMove}
 			onPointerUp={handlePointerUp}
 			onPointerCancel={handlePointerUp}
-			onWheel={handleWheel}
 		>
 			<div
+				ref={boardRef}
 				className="tapeworm-board"
 				style={{
 					width: boardWidth,
 					height: boardHeight,
-					transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
 					position: "relative",
+					willChange: "transform",
 				}}
 			>
 				{/* Placed cards */}
@@ -404,6 +438,7 @@ export function Board({
 								width: CELL_SIZE,
 								height: CELL_SIZE,
 								position: "absolute",
+								opacity: showCutTargets ? 0.6 : 1,
 							}}
 						>
 							<CardView card={placed.card} rotation={placed.rotation} size={CELL_SIZE} />
@@ -434,6 +469,27 @@ export function Board({
 							/>
 						);
 					})}
+
+				{/* Cut target markers */}
+				{showCutTargets &&
+					cutTargets.map((ct) => {
+						const offsets = DIRECTION_OFFSETS[ct.direction]!;
+						const cx = ct.x + offsets.dx;
+						const cy = ct.y + offsets.dy;
+						const left = (cx - bounds.minX) * CELL_STEP + CELL_SIZE / 2 - 14;
+						const top = (cy - bounds.minY) * CELL_STEP + CELL_SIZE / 2 - 14;
+						return (
+							<button
+								key={`cut-${ct.x}-${ct.y}-${ct.direction}`}
+								className="tapeworm-cut-target"
+								style={{ left, top, position: "absolute" }}
+								onClick={() => onCut(ct.x, ct.y, ct.direction)}
+								title={`Разрезать (${ct.color})`}
+							>
+								✂️
+							</button>
+						);
+					})}
 			</div>
 
 			{/* Zoom controls */}
@@ -442,7 +498,7 @@ export function Board({
 					+
 				</button>
 				<button className="tapeworm-zoom-btn" onClick={zoomReset}>
-					{Math.round(scale * 100)}%
+					{Math.round(scaleDisplay * 100)}%
 				</button>
 				<button className="tapeworm-zoom-btn" onClick={zoomOut}>
 					−

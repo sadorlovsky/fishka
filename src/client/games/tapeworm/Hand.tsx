@@ -49,23 +49,21 @@ function DraggableCard({
 		disabled: disabled || discardMode,
 	});
 
-	// Track cumulative angle for smooth rotation animation via Web Animations API.
+	// Animate rotation transitions smoothly via Web Animations API.
+	// The final orientation is handled by CardView's `rotation` prop (SVG internal),
+	// so we only animate the 90° step transition (no fill: forwards).
 	const innerRef = useRef<HTMLDivElement>(null);
-	const cumulativeAngle = useRef(0);
 	const prevRotation = useRef<Rotation>(dragRotation);
 	useEffect(() => {
 		if (dragRotation !== prevRotation.current) {
 			const diff = (dragRotation - prevRotation.current + 360) % 360 || 360;
-			const fromAngle = cumulativeAngle.current;
-			cumulativeAngle.current += diff;
-			const toAngle = cumulativeAngle.current;
 			prevRotation.current = dragRotation;
 			const el = innerRef.current;
 			if (el) {
-				el.animate(
-					[{ transform: `rotate(${fromAngle}deg)` }, { transform: `rotate(${toAngle}deg)` }],
-					{ duration: 200, easing: "ease-out", fill: "forwards" },
-				);
+				el.animate([{ transform: `rotate(-${diff}deg)` }, { transform: "rotate(0deg)" }], {
+					duration: 200,
+					easing: "ease-out",
+				});
 			}
 		}
 	}, [dragRotation]);
@@ -137,7 +135,7 @@ function DraggableCard({
 			{...(discardMode ? {} : { ...restListeners, ...attributes })}
 		>
 			<div ref={innerRef} className="tapeworm-hand-card-inner">
-				<CardView card={hc.card} size={64} />
+				<CardView card={hc.card} size={64} rotation={dragRotation} />
 			</div>
 			{isSelected && !isDragging && !discardMode && (
 				<button

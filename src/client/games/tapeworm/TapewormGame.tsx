@@ -254,10 +254,10 @@ export function TapewormGame() {
 
 	// --- Property resolution handlers ---
 
-	const handlePlayKnife = useCallback(
-		(cardId: string) => {
+	const handlePlayKnifeAndCut = useCallback(
+		(cardId: string, x: number, y: number, direction: string) => {
 			dismissCard(cardId);
-			dispatch({ type: "playKnife", cardId });
+			dispatch({ type: "playKnifeAndCut", cardId, x, y, direction });
 			setActiveCardId(null);
 			setCardRotations((prev) => {
 				const { [cardId]: _, ...rest } = prev;
@@ -374,9 +374,11 @@ export function TapewormGame() {
 	// During property resolution phases, we disable normal board/hand interaction
 	const isPropertyPhase = isDigging || isPeeking || isHatching || isSwapping || isCutting;
 
-	// Check if selected card is a knife
+	// Check if selected card is a knife with preview targets available
 	const selectedCardIsKnife =
 		activeCardId && state.hand.find((c) => c.id === activeCardId)?.card.type === "knife";
+	const knifePreviewTargets =
+		selectedCardIsKnife && activeCardId && state.knifeCutTargets?.[activeCardId];
 
 	return (
 		<DndContext
@@ -394,24 +396,29 @@ export function TapewormGame() {
 					myPlayerId={playerId}
 					hostId={room?.hostId ?? null}
 				>
-					{/* CUT phase: show board with cut targets */}
-					{isCutting && state.validCutTargets ? (
-						<CutOverlay
-							board={state.board}
-							validCutTargets={state.validCutTargets}
-							onCut={handleCutSegment}
-						/>
-					) : (
-						<Board
-							board={state.board}
-							validPlacements={isDiscarding || isPropertyPhase ? [] : activePlacements}
-							activeCardId={isDiscarding || isPropertyPhase ? null : activeCardId}
-							isDragging={isDragging}
-							dragRotation={activeRotation}
-							activeCard={activeCard?.card ?? null}
-							onPlaceTile={handlePlaceTile}
-						/>
-					)}
+					<Board
+						board={state.board}
+						validPlacements={isDiscarding || isPropertyPhase ? [] : activePlacements}
+						activeCardId={isDiscarding || isPropertyPhase ? null : activeCardId}
+						isDragging={isDragging}
+						dragRotation={activeRotation}
+						activeCard={activeCard?.card ?? null}
+						onPlaceTile={handlePlaceTile}
+						cutTargets={
+							knifePreviewTargets && activeCardId
+								? knifePreviewTargets
+								: isCutting && state.validCutTargets
+									? state.validCutTargets
+									: undefined
+						}
+						onCut={
+							knifePreviewTargets && activeCardId
+								? (x, y, direction) => handlePlayKnifeAndCut(activeCardId, x, y, direction)
+								: isCutting
+									? handleCutSegment
+									: undefined
+						}
+					/>
 				</TableSeating>
 
 				{/* SWAP: decideExchange — show target's hand */}
@@ -439,8 +446,10 @@ export function TapewormGame() {
 				{isDigging && (
 					<PropertyHandPicker
 						cards={state.hand}
-						instruction={`Сбросьте карту${pending && pending.remainingActivations > 1 ? ` (осталось ${pending.remainingActivations})` : ""}`}
+						instruction={`Выберите карту для сброса${pending && pending.remainingActivations > 1 ? ` (осталось ${pending.remainingActivations})` : ""}`}
 						onPick={handleDigDiscard}
+						confirmLabel="Сбросить"
+						variant="danger"
 					/>
 				)}
 
@@ -526,19 +535,14 @@ export function TapewormGame() {
 							Сбросить ({discardSelection.length}/{discardCount})
 						</button>
 					</div>
-				) : selectedCardIsKnife && activeCardId && state.playableKnives.includes(activeCardId) ? (
+				) : knifePreviewTargets && activeCardId ? (
 					<div className="tapeworm-controls">
 						<button
-							className="btn btn-primary tapeworm-btn"
-							onClick={() => handlePlayKnife(activeCardId)}
+							className="btn btn-secondary tapeworm-btn"
+							onClick={() => setActiveCardId(null)}
 						>
-							Разрезать
+							Отмена
 						</button>
-						{canEndTurn && (
-							<button className="btn btn-secondary tapeworm-btn" onClick={handleEndTurn}>
-								{state.cardsPlayedThisTurn > 0 ? "Завершить ход" : "Пас"}
-							</button>
-						)}
 					</div>
 				) : (
 					canEndTurn &&
@@ -665,25 +669,69 @@ function PropertyHandPicker({
 	cards,
 	instruction,
 	onPick,
+	confirmLabel,
+	variant = "default",
 }: {
 	cards: HandCard[];
 	instruction: string;
 	onPick: (cardId: string) => void;
+	confirmLabel?: string;
+	variant?: "default" | "danger";
 }) {
+	const [selectedId, setSelectedId] = useState<string | null>(null);
+
+	// If no confirmLabel, use instant pick (old behavior for PEEK etc.)
+	if (!confirmLabel) {
+		return (
+			<div className="tapeworm-property-panel">
+				<div className="tapeworm-property-instruction">{instruction}</div>
+				<div className="tapeworm-hand">
+					{cards.map((hc) => (
+						<div
+							key={hc.id}
+							className="tapeworm-hand-card tapeworm-hand-card--pickable"
+							onClick={() => onPick(hc.id)}
+						>
+							<CardView card={hc.card} size={64} />
+						</div>
+					))}
+				</div>
+			</div>
+		);
+	}
+
+	// Two-step: select then confirm
+	const panelClass = `tapeworm-property-panel${variant === "danger" ? " tapeworm-property-panel--danger" : ""}`;
+
 	return (
-		<div className="tapeworm-property-panel">
+		<div className={panelClass}>
 			<div className="tapeworm-property-instruction">{instruction}</div>
 			<div className="tapeworm-hand">
-				{cards.map((hc) => (
-					<div
-						key={hc.id}
-						className="tapeworm-hand-card tapeworm-hand-card--pickable"
-						onClick={() => onPick(hc.id)}
-					>
-						<CardView card={hc.card} size={64} />
-					</div>
-				))}
+				{cards.map((hc) => {
+					const isSelected = selectedId === hc.id;
+					return (
+						<div
+							key={hc.id}
+							className={`tapeworm-hand-card tapeworm-hand-card--pickable${isSelected ? " tapeworm-hand-card--discard" : ""}`}
+							onClick={() => setSelectedId(isSelected ? null : hc.id)}
+						>
+							<CardView card={hc.card} size={64} />
+						</div>
+					);
+				})}
 			</div>
+			<button
+				className="btn btn-primary tapeworm-btn tapeworm-btn--danger"
+				disabled={!selectedId}
+				onClick={() => {
+					if (selectedId) {
+						onPick(selectedId);
+						setSelectedId(null);
+					}
+				}}
+			>
+				{confirmLabel}
+			</button>
 		</div>
 	);
 }
@@ -749,127 +797,6 @@ function SwapDecidePanel({
 			<button className="btn btn-secondary tapeworm-btn" onClick={onSkip}>
 				Пропустить
 			</button>
-		</div>
-	);
-}
-
-function CutOverlay({
-	board,
-	validCutTargets,
-	onCut,
-}: {
-	board: Record<string, import("@/shared/types/tapeworm").PlacedCard>;
-	validCutTargets: import("@/shared/types/tapeworm").CutTarget[];
-	onCut: (x: number, y: number, direction: string) => void;
-}) {
-	// Reuse board rendering but overlay cut targets as clickable markers
-
-	const CELL_SIZE = 72;
-	const GAP = 2;
-	const CELL_STEP = CELL_SIZE + GAP;
-
-	const allKeys = useMemo(() => {
-		return Object.keys(board).map((key) => {
-			const [xs, ys] = key.split(",");
-			return { x: Number(xs), y: Number(ys) };
-		});
-	}, [board]);
-
-	const bounds = useMemo(() => {
-		if (allKeys.length === 0) {
-			return { minX: -1, maxX: 1, minY: -1, maxY: 1 };
-		}
-		let minX = Infinity,
-			maxX = -Infinity,
-			minY = Infinity,
-			maxY = -Infinity;
-		for (const { x, y } of allKeys) {
-			if (x < minX) {
-				minX = x;
-			}
-			if (x > maxX) {
-				maxX = x;
-			}
-			if (y < minY) {
-				minY = y;
-			}
-			if (y > maxY) {
-				maxY = y;
-			}
-		}
-		return { minX: minX - 1, maxX: maxX + 1, minY: minY - 1, maxY: maxY + 1 };
-	}, [allKeys]);
-
-	const boardWidth = (bounds.maxX - bounds.minX + 1) * CELL_STEP;
-	const boardHeight = (bounds.maxY - bounds.minY + 1) * CELL_STEP;
-
-	// Position cut target markers at the edge between two cells
-	const DIRECTION_OFFSETS: Record<string, { dx: number; dy: number }> = {
-		top: { dx: 0, dy: -0.5 },
-		right: { dx: 0.5, dy: 0 },
-		bottom: { dx: 0, dy: 0.5 },
-		left: { dx: -0.5, dy: 0 },
-	};
-
-	return (
-		<div className="tapeworm-board-container">
-			<div
-				className="tapeworm-board"
-				style={{
-					width: boardWidth,
-					height: boardHeight,
-					position: "relative",
-				}}
-			>
-				{/* Placed cards (dimmed) */}
-				{Object.entries(board).map(([key, placed]) => {
-					const [xs, ys] = key.split(",");
-					const x = Number(xs);
-					const y = Number(ys);
-					const left = (x - bounds.minX) * CELL_STEP;
-					const top = (y - bounds.minY) * CELL_STEP;
-					return (
-						<div
-							key={key}
-							className="tapeworm-cell tapeworm-cell-card"
-							style={{
-								left,
-								top,
-								width: CELL_SIZE,
-								height: CELL_SIZE,
-								position: "absolute",
-								opacity: 0.6,
-							}}
-						>
-							<CardView card={placed.card} rotation={placed.rotation} size={CELL_SIZE} />
-						</div>
-					);
-				})}
-
-				{/* Cut target markers */}
-				{validCutTargets.map((ct) => {
-					const offsets = DIRECTION_OFFSETS[ct.direction]!;
-					const cx = ct.x + offsets.dx;
-					const cy = ct.y + offsets.dy;
-					const left = (cx - bounds.minX) * CELL_STEP + CELL_SIZE / 2 - 14;
-					const top = (cy - bounds.minY) * CELL_STEP + CELL_SIZE / 2 - 14;
-					return (
-						<button
-							key={`cut-${ct.x}-${ct.y}-${ct.direction}`}
-							className="tapeworm-cut-target"
-							style={{
-								left,
-								top,
-								position: "absolute",
-							}}
-							onClick={() => onCut(ct.x, ct.y, ct.direction)}
-							title={`Разрезать (${ct.color})`}
-						>
-							✂️
-						</button>
-					);
-				})}
-			</div>
 		</div>
 	);
 }

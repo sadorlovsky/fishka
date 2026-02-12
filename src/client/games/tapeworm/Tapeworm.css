@@ -485,11 +485,29 @@
 	border-radius: var(--radius-md);
 }
 
+.tapeworm-property-panel--danger {
+	border-color: #e84545;
+	background: rgba(232, 69, 69, 0.08);
+}
+
 .tapeworm-property-instruction {
 	font-size: 0.8125rem;
 	font-weight: 600;
 	color: var(--color-text);
 	text-align: center;
+}
+
+.tapeworm-property-panel--danger .tapeworm-property-instruction {
+	color: #e84545;
+}
+
+.tapeworm-btn--danger {
+	background: #e84545;
+
+	&:disabled {
+		opacity: 0.4;
+		background: #e84545;
+	}
 }
 
 .tapeworm-hand-card--pickable {

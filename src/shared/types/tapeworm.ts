@@ -150,6 +150,7 @@ export interface TapewormPlayerView {
 	swapTargetHand?: HandCard[];
 	validCutTargets?: CutTarget[];
 	playableKnives: string[];
+	knifeCutTargets?: Record<string, CutTarget[]>;
 }
 
 // --- Actions ---
@@ -178,6 +179,14 @@ export interface TapewormPlayKnifeAction extends BaseGameAction {
 
 export interface TapewormCutAction extends BaseGameAction {
 	type: "cutSegment";
+	x: number;
+	y: number;
+	direction: Direction;
+}
+
+export interface TapewormPlayKnifeAndCutAction extends BaseGameAction {
+	type: "playKnifeAndCut";
+	cardId: string;
 	x: number;
 	y: number;
 	direction: Direction;
@@ -219,6 +228,7 @@ export type TapewormAction =
 	| TapewormDiscardAction
 	| TapewormPlayKnifeAction
 	| TapewormCutAction
+	| TapewormPlayKnifeAndCutAction
 	| TapewormDigDiscardAction
 	| TapewormSwapPickPlayerAction
 	| TapewormSwapTakeCardAction

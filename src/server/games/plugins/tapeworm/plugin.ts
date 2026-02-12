@@ -621,7 +621,7 @@ export const tapewormPlugin: GamePlugin<TapewormState, TapewormAction, TapewormC
 				}
 
 				if (handCard.card.type === "knife") {
-					return "Use playKnife for knife cards";
+					return "Use playKnifeAndCut for knife cards";
 				}
 
 				if (!isValidPlacement(state.board, handCard.card, action.x, action.y, action.rotation)) {
@@ -738,6 +738,45 @@ export const tapewormPlugin: GamePlugin<TapewormState, TapewormAction, TapewormC
 				}
 
 				const targets = getValidCutTargets(state.board, state.pendingProperty.cutColor);
+				const isValid = targets.some(
+					(t) => t.x === action.x && t.y === action.y && t.direction === action.direction,
+				);
+				if (!isValid) {
+					return "Invalid cut target";
+				}
+
+				return null;
+			}
+
+			case "playKnifeAndCut": {
+				if (state.phase !== "playing") {
+					return "Cannot play knife now";
+				}
+				if (playerId !== state.currentPlayerId) {
+					return "Not your turn";
+				}
+
+				const hand = state.hands[playerId];
+				if (!hand) {
+					return "No hand found";
+				}
+
+				const handCard = hand.find((c) => c.id === action.cardId);
+				if (!handCard) {
+					return "Card not in hand";
+				}
+				if (handCard.card.type !== "knife") {
+					return "Card is not a knife";
+				}
+				if (!handCard.card.knifeColor) {
+					return "Knife has no color";
+				}
+
+				const targets = getValidCutTargets(state.board, handCard.card.knifeColor);
+				if (targets.length === 0) {
+					return "No valid cut targets";
+				}
+
 				const isValid = targets.some(
 					(t) => t.x === action.x && t.y === action.y && t.direction === action.direction,
 				);
@@ -1026,6 +1065,58 @@ export const tapewormPlugin: GamePlugin<TapewormState, TapewormAction, TapewormC
 				return newState;
 			}
 
+			case "playKnifeAndCut": {
+				const hand = state.hands[playerId]!;
+				const cardIndex = hand.findIndex((c) => c.id === action.cardId);
+				if (cardIndex === -1) {
+					return null;
+				}
+
+				const handCard = hand[cardIndex]!;
+				const newHand = hand.filter((_, i) => i !== cardIndex);
+				const newHands = { ...state.hands, [playerId]: newHand };
+
+				// Check win — empty hand after playing knife
+				if (newHand.length === 0) {
+					return gameOver(
+						{
+							...state,
+							hands: newHands,
+							players: updatePlayerHandSizes(state.players, newHands),
+						},
+						playerId,
+					);
+				}
+
+				// Perform the cut immediately
+				const { newBoard } = performCut(state.board, action.x, action.y, action.direction);
+
+				// Determine chain color from the cut target
+				const knifeColor = handCard.card.knifeColor ?? "rainbow";
+				const cutTarget = getValidCutTargets(state.board, knifeColor).find(
+					(t) => t.x === action.x && t.y === action.y && t.direction === action.direction,
+				);
+				const chainColor: WormColor | null = cutTarget?.color ?? null;
+
+				const newState: TapewormState = {
+					...state,
+					hands: newHands,
+					board: newBoard,
+					phase: "playing",
+					cardsPlayedThisTurn: state.cardsPlayedThisTurn + 1,
+					chainColor,
+					pendingProperty: null,
+					lastPlacedPosition: { x: action.x, y: action.y },
+					players: updatePlayerHandSizes(state.players, newHands),
+				};
+
+				if (!canPlayerChain(newState, playerId)) {
+					return advanceTurn(newState);
+				}
+
+				return newState;
+			}
+
 			case "digDiscard": {
 				if (!state.pendingProperty) {
 					return null;
@@ -1223,6 +1314,18 @@ export const tapewormPlugin: GamePlugin<TapewormState, TapewormAction, TapewormC
 			validCutTargets = getValidCutTargets(state.board, state.pendingProperty.cutColor);
 		}
 
+		// Pre-compute cut targets per knife for preview during playing phase
+		let knifeCutTargets: Record<string, CutTarget[]> | undefined;
+		if (isMyTurn && state.phase === "playing" && playableKnives.length > 0) {
+			knifeCutTargets = {};
+			for (const knifeId of playableKnives) {
+				const knifeCard = hand.find((c) => c.id === knifeId);
+				if (knifeCard?.card.knifeColor) {
+					knifeCutTargets[knifeId] = getValidCutTargets(state.board, knifeCard.card.knifeColor);
+				}
+			}
+		}
+
 		return {
 			phase: state.phase,
 			board: state.board,
@@ -1242,6 +1345,7 @@ export const tapewormPlugin: GamePlugin<TapewormState, TapewormAction, TapewormC
 			swapTargetHand,
 			validCutTargets,
 			playableKnives,
+			knifeCutTargets,
 		};
 	},
 
