@@ -15,11 +15,24 @@ export function LobbyScreen() {
 	const { room, playerId, send } = useConnection();
 	const [codeCopied, setCodeCopied] = useState(false);
 
-	const copyFromCode = useCallback(() => {
+	const copyFromCode = useCallback(async () => {
 		if (!room) {
 			return;
 		}
-		navigator.clipboard.writeText(`${location.origin}/room/${room.code}`);
+		const url = `${location.origin}/room/${room.code}`;
+		try {
+			await navigator.clipboard.writeText(url);
+		} catch {
+			// Fallback for non-secure contexts (http://, WebView, etc.)
+			const ta = document.createElement("textarea");
+			ta.value = url;
+			ta.style.position = "fixed";
+			ta.style.opacity = "0";
+			document.body.appendChild(ta);
+			ta.select();
+			document.execCommand("copy");
+			document.body.removeChild(ta);
+		}
 		setCodeCopied(true);
 		setTimeout(() => setCodeCopied(false), 2000);
 	}, [room]);

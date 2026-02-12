@@ -71,7 +71,7 @@ function handleConnect(
 	msg: Extract<ClientMessage, { type: "connect" }>,
 ): void {
 	const ip = ws.remoteAddress;
-	if (!connectRateLimiter.check(ip)) {
+	if (process.env.NODE_ENV === "production" && !connectRateLimiter.check(ip)) {
 		sendError(ws, ErrorCode.RATE_LIMITED, "Too many connection attempts");
 		return;
 	}
@@ -180,7 +180,7 @@ function handleJoinRoom(
 	msg: Extract<ClientMessage, { type: "joinRoom" }>,
 ): void {
 	const ip = ws.remoteAddress;
-	if (!joinRateLimiter.check(ip)) {
+	if (process.env.NODE_ENV === "production" && !joinRateLimiter.check(ip)) {
 		sendError(ws, ErrorCode.RATE_LIMITED, "Too many join attempts");
 		return;
 	}

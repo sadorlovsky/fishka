@@ -17,9 +17,66 @@ registerPlugin(wordGuessPlugin);
 registerPlugin(tapewormPlugin);
 registerPlugin(crocodilePlugin);
 
-// Start room cleanup, player sweep, and rate limit cleanup
+// Restore persisted state
+import { restoreGame } from "./server/games/engine";
 import { playerManager } from "./server/rooms/player-manager";
 import { roomManager } from "./server/rooms/room-manager";
+import { loadAllRooms } from "./server/storage/sqlite";
+
+const restoredPlayers = playerManager.restore();
+const restoredRooms = roomManager.restore();
+
+if (restoredPlayers > 0 || restoredRooms > 0) {
+	console.log(`[restore] ${restoredPlayers} players, ${restoredRooms} rooms`);
+
+	// Restore game engines for playing rooms and pause them
+	const roomRows = loadAllRooms();
+	for (const row of roomRows) {
+		if (row.status !== "playing" || !row.game_state_json) {
+			continue;
+		}
+
+		const room = roomManager.get(row.code);
+		if (!room) {
+			continue;
+		}
+
+		const gameState = JSON.parse(row.game_state_json);
+		const pauseInfo = row.pause_info_json ? JSON.parse(row.pause_info_json) : null;
+
+		const result = restoreGame(row.code, room.settings.gameId, gameState, pauseInfo);
+
+		if (result.error) {
+			console.warn(`[restore] failed to restore game in room ${row.code}: ${result.error}`);
+			continue;
+		}
+
+		// If game wasn't already paused, pause it now (all players are disconnected)
+		if (!pauseInfo && result.engine) {
+			// Save timer remaining from timerEndsAt before pausing
+			const stateAny = gameState as Record<string, unknown>;
+			const savedRemaining =
+				typeof stateAny.timerEndsAt === "number"
+					? Math.max(0, stateAny.timerEndsAt - Date.now())
+					: null;
+
+			// Find any player to attribute the pause to (they're all disconnected)
+			const pausePlayerId = room.playerIds[0];
+			if (pausePlayerId) {
+				result.engine.pause(pausePlayerId);
+				// Override savedTimerRemaining if we computed it from state
+				if (savedRemaining !== null) {
+					(result.engine as unknown as { savedTimerRemaining: number | null }).savedTimerRemaining =
+						savedRemaining;
+				}
+			}
+		}
+
+		console.log(`[restore] game restored in room ${row.code} (${room.settings.gameId})`);
+	}
+}
+
+// Start room cleanup, player sweep, and rate limit cleanup
 import { connectRateLimiter, gameActionRateLimiter, joinRateLimiter } from "./server/ws/rate-limit";
 
 roomManager.startCleanup();

@@ -9,6 +9,14 @@ import {
 import type { ServerMessage } from "@/shared/types/protocol";
 import type { PlayerInfo, RoomSettings, RoomState, RoomStatus } from "@/shared/types/room";
 import { DEFAULT_ROOM_SETTINGS } from "@/shared/types/room";
+import {
+	deletePersistedRoom,
+	loadAllRooms,
+	persistRoom,
+	updatePersistedGameState,
+	updatePersistedRoomPlayers,
+	updatePersistedRoomSettings,
+} from "../storage/sqlite";
 import { send } from "../ws/connection";
 import { playerManager } from "./player-manager";
 
@@ -124,9 +132,20 @@ class RoomManager {
 
 		this.rooms.set(code, room);
 
+		persistRoom({
+			code,
+			status: room.status,
+			hostId: room.hostId,
+			playerIds: room.playerIds,
+			settings: room.settings,
+			gameState: null,
+			pauseInfo: null,
+			createdAt: room.createdAt,
+		});
+
 		const player = playerManager.get(hostId);
 		if (player) {
-			player.roomCode = code;
+			playerManager.setRoomCode(hostId, code);
 			if (player.ws) {
 				player.ws.subscribe(`room:${code}`);
 			}
@@ -173,9 +192,10 @@ class RoomManager {
 		}
 
 		room.playerIds.push(playerId);
+		updatePersistedRoomPlayers(roomCode, room.playerIds, room.hostId);
 
 		if (player) {
-			player.roomCode = roomCode;
+			playerManager.setRoomCode(playerId, roomCode);
 			if (player.ws) {
 				player.ws.subscribe(`room:${roomCode}`);
 			}
@@ -194,7 +214,7 @@ class RoomManager {
 
 		const player = playerManager.get(playerId);
 		if (player) {
-			player.roomCode = null;
+			playerManager.setRoomCode(playerId, null);
 			if (player.ws) {
 				player.ws.unsubscribe(`room:${roomCode}`);
 			}
@@ -208,16 +228,14 @@ class RoomManager {
 			});
 			for (const id of disconnected) {
 				room.playerIds = room.playerIds.filter((pid) => pid !== id);
-				const p = playerManager.get(id);
-				if (p) {
-					p.roomCode = null;
-				}
+				playerManager.setRoomCode(id, null);
 			}
 		}
 
 		// If room is empty, destroy it
 		if (room.playerIds.length === 0) {
 			this.rooms.delete(roomCode);
+			deletePersistedRoom(roomCode);
 			return;
 		}
 
@@ -225,6 +243,8 @@ class RoomManager {
 		if (room.hostId === playerId) {
 			room.hostId = room.playerIds[0]!;
 		}
+
+		updatePersistedRoomPlayers(roomCode, room.playerIds, room.hostId);
 	}
 
 	updateSettings(
@@ -258,6 +278,7 @@ class RoomManager {
 		}
 
 		room.settings = { ...room.settings, ...settings };
+		updatePersistedRoomSettings(roomCode, room.settings);
 		return null;
 	}
 
@@ -289,6 +310,7 @@ class RoomManager {
 		const room = this.rooms.get(roomCode);
 		if (room) {
 			room.status = status;
+			updatePersistedGameState(roomCode, status, room.gameState);
 		}
 	}
 
@@ -296,6 +318,7 @@ class RoomManager {
 		const room = this.rooms.get(roomCode);
 		if (room) {
 			room.gameState = state;
+			updatePersistedGameState(roomCode, room.status, state);
 		}
 	}
 
@@ -387,11 +410,30 @@ class RoomManager {
 					playerManager.remove(id);
 				}
 				this.rooms.delete(code);
+				deletePersistedRoom(code);
 				removed++;
 			}
 		}
 
 		return removed;
+	}
+
+	restore(): number {
+		const rows = loadAllRooms();
+		for (const row of rows) {
+			const room: ServerRoom = {
+				code: row.code,
+				status: row.status as RoomStatus,
+				hostId: row.host_id,
+				playerIds: JSON.parse(row.player_ids_json),
+				bannedPlayerIds: new Set(),
+				settings: JSON.parse(row.settings_json),
+				createdAt: row.created_at,
+				gameState: row.game_state_json ? JSON.parse(row.game_state_json) : null,
+			};
+			this.rooms.set(room.code, room);
+		}
+		return rows.length;
 	}
 
 	startCleanup(intervalMs = 60_000): void {

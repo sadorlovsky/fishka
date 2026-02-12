@@ -1,6 +1,12 @@
 import type { ServerWebSocket } from "bun";
 import { HEARTBEAT_TIMEOUT, ORPHAN_PLAYER_TIMEOUT } from "@/shared/constants";
 import type { PlayerInfo } from "@/shared/types/room";
+import {
+	deleteSession,
+	loadAllSessions,
+	persistSession,
+	updateSessionRoom,
+} from "../storage/sqlite";
 import type { WSData } from "../ws/connection";
 
 export interface ServerPlayer {
@@ -45,6 +51,16 @@ class PlayerManager {
 
 		ws.data.playerId = id;
 		ws.data.sessionToken = sessionToken;
+
+		persistSession({
+			playerId: id,
+			sessionToken,
+			name,
+			avatarSeed,
+			roomCode: null,
+			isSpectator: false,
+			createdAt: now,
+		});
 
 		return player;
 	}
@@ -106,6 +122,15 @@ class PlayerManager {
 		}
 		this.sessionToPlayer.delete(player.sessionToken);
 		this.players.delete(playerId);
+		deleteSession(playerId);
+	}
+
+	setRoomCode(playerId: string, roomCode: string | null): void {
+		const player = this.players.get(playerId);
+		if (player) {
+			player.roomCode = roomCode;
+			updateSessionRoom(playerId, roomCode);
+		}
 	}
 
 	get(playerId: string): ServerPlayer | null {
@@ -181,6 +206,27 @@ class PlayerManager {
 		}
 
 		return removed;
+	}
+
+	restore(): number {
+		const rows = loadAllSessions();
+		for (const row of rows) {
+			const player: ServerPlayer = {
+				id: row.player_id,
+				name: row.name,
+				avatarSeed: row.avatar_seed,
+				sessionToken: row.session_token,
+				ws: null,
+				roomCode: row.room_code,
+				isConnected: false,
+				isSpectator: row.is_spectator === 1,
+				connectedAt: row.created_at,
+				lastHeartbeat: Date.now(),
+			};
+			this.players.set(player.id, player);
+			this.sessionToPlayer.set(player.sessionToken, player.id);
+		}
+		return rows.length;
 	}
 
 	startSweep(intervalMs = 15_000): void {

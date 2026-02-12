@@ -35,3 +35,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # SQLite data
 data/
+
+# Python venv (e2e tests)
+e2e/.venv/
+__pycache__/
+.pytest_cache/

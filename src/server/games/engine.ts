@@ -3,6 +3,7 @@ import type { GamePlugin, PauseInfo } from "@/shared/types/game";
 import type { PlayerInfo } from "@/shared/types/room";
 import { playerManager } from "../rooms/player-manager";
 import { roomManager } from "../rooms/room-manager";
+import { updatePersistedPauseInfo } from "../storage/sqlite";
 import { getPlugin } from "./registry";
 
 export class GameEngine {
@@ -107,6 +108,11 @@ export class GameEngine {
 			timeoutAt: now + PAUSE_TIMEOUT_MS,
 		};
 
+		updatePersistedPauseInfo(this.roomCode, {
+			...this.pauseInfo,
+			savedTimerRemaining: this.savedTimerRemaining,
+		});
+
 		// Start pause timeout
 		this.pauseTimerHandle = setTimeout(() => {
 			this.handlePauseTimeout();
@@ -148,6 +154,8 @@ export class GameEngine {
 		this.pauseInfo = null;
 		this.savedTimerRemaining = null;
 
+		updatePersistedPauseInfo(this.roomCode, null);
+
 		// Restore game timer
 		this.syncTimer();
 
@@ -169,6 +177,8 @@ export class GameEngine {
 		this.pauseInfo = null;
 		this.pauseTimerHandle = null;
 		this.savedTimerRemaining = null;
+
+		updatePersistedPauseInfo(this.roomCode, null);
 
 		this.finish();
 	}
@@ -318,6 +328,40 @@ export class GameEngine {
 		this.setTimer(config.durationMs, config.action);
 	}
 
+	restoreState(
+		gameState: unknown,
+		pauseInfo: (PauseInfo & { savedTimerRemaining?: number | null }) | null,
+	): void {
+		this.state = gameState;
+
+		if (pauseInfo) {
+			// Restore pause state
+			this.paused = true;
+			this.pauseInfo = {
+				disconnectedPlayerId: pauseInfo.disconnectedPlayerId,
+				disconnectedPlayerName: pauseInfo.disconnectedPlayerName,
+				pausedAt: pauseInfo.pausedAt,
+				timeoutAt: pauseInfo.timeoutAt,
+			};
+			this.savedTimerRemaining = pauseInfo.savedTimerRemaining ?? null;
+
+			// Restart pause timeout with remaining time
+			const pauseRemaining = Math.max(0, pauseInfo.timeoutAt - Date.now());
+			if (pauseRemaining > 0) {
+				this.pauseTimerHandle = setTimeout(() => {
+					this.handlePauseTimeout();
+				}, pauseRemaining);
+			} else {
+				// Pause already expired — end game
+				this.handlePauseTimeout();
+			}
+		} else {
+			// Not paused — but all players are disconnected after restart,
+			// so put into pause state immediately
+			// This will be handled by index.ts after restore
+		}
+	}
+
 	getState(): unknown {
 		return this.state;
 	}
@@ -366,6 +410,29 @@ export function startGame(
 	const engine = new GameEngine(plugin, roomCode);
 	engines.set(roomCode, engine);
 	engine.start(players, config);
+
+	return { engine };
+}
+
+export function restoreGame(
+	roomCode: string,
+	gameId: string,
+	gameState: unknown,
+	pauseInfo: (PauseInfo & { savedTimerRemaining?: number | null }) | null,
+): { engine?: GameEngine; error?: string } {
+	const plugin = getPlugin(gameId);
+	if (!plugin) {
+		return { error: `Game "${gameId}" not found` };
+	}
+
+	const existing = engines.get(roomCode);
+	if (existing) {
+		existing.destroy();
+	}
+
+	const engine = new GameEngine(plugin, roomCode);
+	engine.restoreState(gameState, pauseInfo);
+	engines.set(roomCode, engine);
 
 	return { engine };
 }
