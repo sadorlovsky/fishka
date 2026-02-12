@@ -7,7 +7,7 @@ Multiplayer browser game platform built with Bun, React, and TypeScript.
 - **Runtime**: Bun
 - **Frontend**: React 19 + TypeScript
 - **Transport**: WebSocket (native Bun)
-- **Storage**: SQLite (bun:sqlite) + Redis (Bun.redis)
+- **Storage**: SQLite (bun:sqlite)
 
 ## Development
 
