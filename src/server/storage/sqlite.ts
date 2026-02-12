@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 
+Bun.spawnSync(["mkdir", "-p", "data"]);
 const db = new Database("data/games.db", { create: true });
 
 db.run("PRAGMA journal_mode = WAL");
