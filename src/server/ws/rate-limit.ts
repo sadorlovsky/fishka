@@ -66,3 +66,6 @@ export const connectRateLimiter = new RateLimiter(10, 60_000, "connect");
 
 // 10 game actions per second per player (keyed by playerId)
 export const gameActionRateLimiter = new RateLimiter(10, 1_000, "gameAction");
+
+// 30 drawing strokes per second per player (keyed by playerId)
+export const drawStrokeRateLimiter = new RateLimiter(30, 1_000, "drawStroke");

@@ -192,7 +192,7 @@ export const crocodilePlugin: GamePlugin<CrocodileState, CrocodileAction, Crocod
 
 	getPlayerView(state: CrocodileState, playerId: string): CrocodilePlayerView {
 		const isShower = playerId === state.currentShowerId;
-		const showWord = state.phase === "showing" && isShower;
+		const showWord = (state.phase === "showing" && isShower) || state.phase === "roundEnd";
 
 		return {
 			phase: state.phase,

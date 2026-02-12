@@ -60,6 +60,20 @@ export interface KickPlayerMessage {
 	targetPlayerId: string;
 }
 
+export interface DrawStrokeMessage {
+	type: "drawStroke";
+	points: { x: number; y: number }[];
+	newStroke?: boolean;
+}
+
+export interface DrawClearMessage {
+	type: "drawClear";
+}
+
+export interface DrawUndoMessage {
+	type: "drawUndo";
+}
+
 export type ClientMessage =
 	| ConnectMessage
 	| CreateRoomMessage
@@ -72,7 +86,10 @@ export type ClientMessage =
 	| ReturnToLobbyMessage
 	| EndGameMessage
 	| SwitchTeamMessage
-	| KickPlayerMessage;
+	| KickPlayerMessage
+	| DrawStrokeMessage
+	| DrawClearMessage
+	| DrawUndoMessage;
 
 // --- Server → Client ---
 
@@ -168,6 +185,11 @@ export interface PlayerKickedMessage {
 	playerId: string;
 }
 
+export interface DrawHistoryMessage {
+	type: "drawHistory";
+	strokes: { x: number; y: number }[][];
+}
+
 export interface ErrorMessage {
 	type: "error";
 	code: string;
@@ -193,4 +215,8 @@ export type ServerMessage =
 	| GamePausedMessage
 	| GameResumedMessage
 	| PlayerKickedMessage
+	| DrawStrokeMessage
+	| DrawClearMessage
+	| DrawUndoMessage
+	| DrawHistoryMessage
 	| ErrorMessage;

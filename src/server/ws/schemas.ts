@@ -81,6 +81,25 @@ const KickPlayerMessage = Schema.Struct({
 	targetPlayerId: PlayerId,
 });
 
+const DrawPoint = Schema.Struct({
+	x: Schema.Number,
+	y: Schema.Number,
+});
+
+const DrawStrokeMessage = Schema.Struct({
+	type: Schema.Literal("drawStroke"),
+	points: Schema.Array(DrawPoint),
+	newStroke: Schema.optional(Schema.Boolean),
+});
+
+const DrawClearMessage = Schema.Struct({
+	type: Schema.Literal("drawClear"),
+});
+
+const DrawUndoMessage = Schema.Struct({
+	type: Schema.Literal("drawUndo"),
+});
+
 const ClientMessageSchema = Schema.Union(
 	ConnectMessage,
 	HeartbeatMessage,
@@ -94,6 +113,9 @@ const ClientMessageSchema = Schema.Union(
 	EndGameMessage,
 	SwitchTeamMessage,
 	KickPlayerMessage,
+	DrawStrokeMessage,
+	DrawClearMessage,
+	DrawUndoMessage,
 );
 
 const decode = Schema.decodeUnknownEither(ClientMessageSchema);

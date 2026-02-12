@@ -387,6 +387,19 @@ class RoomManager {
 		}
 	}
 
+	sendToRoomExcept(roomCode: string, exceptPlayerId: string, message: ServerMessage): void {
+		const room = this.rooms.get(roomCode);
+		if (!room) {
+			return;
+		}
+
+		for (const playerId of room.playerIds) {
+			if (playerId !== exceptPlayerId) {
+				this.sendToPlayer(playerId, message);
+			}
+		}
+	}
+
 	cleanup(): number {
 		const now = Date.now();
 		let removed = 0;

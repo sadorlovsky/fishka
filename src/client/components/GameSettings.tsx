@@ -207,13 +207,13 @@ function CrocodileSettings({
 				<div className="settings-options">
 					<button
 						className={`settings-option${config.mode === "gestures" ? " settings-option--active" : ""}`}
-						onClick={() => updateConfig({ mode: "gestures" })}
+						onClick={() => updateConfig({ mode: "gestures", roundTimeSeconds: 60 })}
 					>
 						Жесты
 					</button>
 					<button
 						className={`settings-option${config.mode === "drawing" ? " settings-option--active" : ""}`}
-						onClick={() => updateConfig({ mode: "drawing" })}
+						onClick={() => updateConfig({ mode: "drawing", roundTimeSeconds: 120 })}
 					>
 						Рисование
 					</button>

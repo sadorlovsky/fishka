@@ -8,9 +8,22 @@ import {
 	useState,
 } from "react";
 import type { PauseInfo } from "@/shared/types/game";
-import type { ClientMessage, ServerMessage } from "@/shared/types/protocol";
+import type {
+	ClientMessage,
+	DrawClearMessage,
+	DrawHistoryMessage,
+	DrawStrokeMessage,
+	DrawUndoMessage,
+	ServerMessage,
+} from "@/shared/types/protocol";
 import type { RoomState } from "@/shared/types/room";
 import { type ConnectionStatus, useWebSocket } from "../hooks/useWebSocket";
+
+export type DrawingEvent =
+	| DrawStrokeMessage
+	| DrawClearMessage
+	| DrawUndoMessage
+	| DrawHistoryMessage;
 
 interface ConnectionState {
 	status: ConnectionStatus;
@@ -23,6 +36,7 @@ interface ConnectionState {
 	send: (msg: ClientMessage) => void;
 	connect: () => void;
 	ensurePlayer: (name: string, avatarSeed: number, then: () => void) => void;
+	onDrawingEvent: (listener: (event: DrawingEvent) => void) => () => void;
 }
 
 const ConnectionCtx = createContext<ConnectionState | null>(null);
@@ -38,6 +52,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
 	const playerIdRef = useRef<string | null>(null);
 
 	const awaitingRoomRef = useRef(false);
+	const drawingListenersRef = useRef<Set<(event: DrawingEvent) => void>>(new Set());
 
 	const handleMessage = useCallback((msg: ServerMessage) => {
 		switch (msg.type) {
@@ -160,6 +175,15 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
 				setPauseInfo(null);
 				break;
 
+			case "drawStroke":
+			case "drawClear":
+			case "drawUndo":
+			case "drawHistory":
+				for (const listener of drawingListenersRef.current) {
+					listener(msg);
+				}
+				break;
+
 			case "error":
 				console.error(`[server error] ${msg.code}: ${msg.message}`);
 				setLastError({ code: msg.code, message: msg.message });
@@ -208,6 +232,13 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
 		}
 	}, [status, send]);
 
+	const onDrawingEvent = useCallback((listener: (event: DrawingEvent) => void) => {
+		drawingListenersRef.current.add(listener);
+		return () => {
+			drawingListenersRef.current.delete(listener);
+		};
+	}, []);
+
 	const ensurePlayer = useCallback(
 		(name: string, avatarSeed: number, then: () => void) => {
 			localStorage.setItem("playerName", name);
@@ -233,6 +264,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
 		send,
 		connect,
 		ensurePlayer,
+		onDrawingEvent,
 	};
 
 	return <ConnectionCtx.Provider value={value}>{children}</ConnectionCtx.Provider>;

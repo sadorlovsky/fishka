@@ -5,7 +5,23 @@ import { destroyEngine, getEngine, startGame } from "../games/engine";
 import { playerManager } from "../rooms/player-manager";
 import { roomManager } from "../rooms/room-manager";
 import { parseMessage, send, sendError, type WSData } from "./connection";
-import { connectRateLimiter, gameActionRateLimiter, joinRateLimiter } from "./rate-limit";
+import {
+	connectRateLimiter,
+	drawStrokeRateLimiter,
+	gameActionRateLimiter,
+	joinRateLimiter,
+} from "./rate-limit";
+
+// In-memory drawing strokes per room (for reconnect replay)
+const drawingStrokes = new Map<string, { x: number; y: number }[][]>();
+
+export function clearDrawingStrokes(roomCode: string): void {
+	drawingStrokes.delete(roomCode);
+}
+
+export function getDrawingStrokes(roomCode: string): { x: number; y: number }[][] | undefined {
+	return drawingStrokes.get(roomCode);
+}
 
 export function handleOpen(_ws: ServerWebSocket<WSData>): void {
 	console.log("[ws] new connection");
@@ -56,6 +72,15 @@ export function handleMessage(ws: ServerWebSocket<WSData>, raw: string | Buffer)
 				break;
 			case "kickPlayer":
 				handleKickPlayer(ws, msg);
+				break;
+			case "drawStroke":
+				handleDrawStroke(ws, msg);
+				break;
+			case "drawClear":
+				handleDrawClear(ws);
+				break;
+			case "drawUndo":
+				handleDrawUndo(ws);
 				break;
 			default:
 				sendError(ws, ErrorCode.INVALID_MESSAGE, "Unknown message type");
@@ -143,6 +168,12 @@ function handleConnect(
 								if (pauseInfo) {
 									send(ws, { type: "gamePaused", pauseInfo });
 								}
+							}
+
+							// Send drawing history for reconnect
+							const strokes = getDrawingStrokes(room.code);
+							if (strokes && strokes.length > 0) {
+								send(ws, { type: "drawHistory", strokes });
 							}
 						}
 					}
@@ -347,7 +378,22 @@ function handleGameAction(
 		return;
 	}
 
+	const stateBefore = engine.getState() as { phase?: string; mode?: string } | null;
+	const phaseBefore = stateBefore?.phase;
+
 	const result = engine.handleAction(player.id, msg.action);
+
+	// Clear drawing strokes on round change (phase transitions to "starting" or "gameOver")
+	if (result.success && stateBefore?.mode === "drawing") {
+		const stateAfter = engine.getState() as { phase?: string } | null;
+		if (
+			stateAfter?.phase !== phaseBefore &&
+			(stateAfter?.phase === "starting" || stateAfter?.phase === "gameOver")
+		) {
+			clearDrawingStrokes(player.roomCode);
+			roomManager.sendToRoom(player.roomCode, { type: "drawClear" });
+		}
+	}
 
 	send(ws, {
 		type: "gameActionResult",
@@ -489,6 +535,7 @@ function handleEndGame(ws: ServerWebSocket<WSData>): void {
 	}
 
 	destroyEngine(room.code);
+	clearDrawingStrokes(room.code);
 	roomManager.setStatus(room.code, "lobby");
 	roomManager.setGameState(room.code, null);
 
@@ -523,6 +570,7 @@ function handleReturnToLobby(ws: ServerWebSocket<WSData>): void {
 	}
 
 	destroyEngine(room.code);
+	clearDrawingStrokes(room.code);
 	roomManager.setStatus(room.code, "lobby");
 	roomManager.setGameState(room.code, null);
 
@@ -533,6 +581,122 @@ function handleReturnToLobby(ws: ServerWebSocket<WSData>): void {
 	});
 
 	console.log(`[ws] room ${room.code} returned to lobby`);
+}
+
+function handleDrawStroke(
+	ws: ServerWebSocket<WSData>,
+	msg: Extract<ClientMessage, { type: "drawStroke" }>,
+): void {
+	const player = playerManager.getByWs(ws);
+	if (!player?.roomCode) {
+		return;
+	}
+
+	if (!drawStrokeRateLimiter.check(player.id)) {
+		return; // Silently drop — no error to avoid flooding
+	}
+
+	const room = roomManager.get(player.roomCode);
+	if (!room || room.status !== "playing") {
+		return;
+	}
+
+	// Verify this player is the shower in drawing mode
+	const engine = getEngine(player.roomCode);
+	if (!engine) {
+		return;
+	}
+	const state = engine.getState() as {
+		currentShowerId?: string;
+		mode?: string;
+		phase?: string;
+	} | null;
+	if (
+		!state ||
+		state.currentShowerId !== player.id ||
+		state.mode !== "drawing" ||
+		state.phase !== "showing"
+	) {
+		return;
+	}
+
+	// Store stroke for reconnect replay
+	if (!drawingStrokes.has(player.roomCode)) {
+		drawingStrokes.set(player.roomCode, []);
+	}
+	const strokes = drawingStrokes.get(player.roomCode)!;
+	if (msg.newStroke || strokes.length === 0) {
+		strokes.push([...msg.points]);
+	} else {
+		const last = strokes[strokes.length - 1]!;
+		last.push(...msg.points);
+	}
+
+	// Relay to everyone except sender
+	roomManager.sendToRoomExcept(player.roomCode, player.id, {
+		type: "drawStroke",
+		points: msg.points,
+		newStroke: msg.newStroke,
+	});
+}
+
+function handleDrawClear(ws: ServerWebSocket<WSData>): void {
+	const player = playerManager.getByWs(ws);
+	if (!player?.roomCode) {
+		return;
+	}
+
+	const room = roomManager.get(player.roomCode);
+	if (!room || room.status !== "playing") {
+		return;
+	}
+
+	const engine = getEngine(player.roomCode);
+	if (!engine) {
+		return;
+	}
+	const state = engine.getState() as {
+		currentShowerId?: string;
+		mode?: string;
+		phase?: string;
+	} | null;
+	if (!state || state.currentShowerId !== player.id || state.mode !== "drawing") {
+		return;
+	}
+
+	// Clear stored strokes
+	drawingStrokes.delete(player.roomCode);
+
+	// Relay to everyone except sender
+	roomManager.sendToRoomExcept(player.roomCode, player.id, { type: "drawClear" });
+}
+
+function handleDrawUndo(ws: ServerWebSocket<WSData>): void {
+	const player = playerManager.getByWs(ws);
+	if (!player?.roomCode) {
+		return;
+	}
+
+	const room = roomManager.get(player.roomCode);
+	if (!room || room.status !== "playing") {
+		return;
+	}
+
+	const engine = getEngine(player.roomCode);
+	if (!engine) {
+		return;
+	}
+	const state = engine.getState() as { currentShowerId?: string; mode?: string } | null;
+	if (!state || state.currentShowerId !== player.id || state.mode !== "drawing") {
+		return;
+	}
+
+	const strokes = drawingStrokes.get(player.roomCode);
+	if (strokes && strokes.length > 0) {
+		strokes.pop();
+	}
+
+	roomManager.sendToRoomExcept(player.roomCode, player.id, { type: "drawUndo" });
 }
 
 export function handleClose(ws: ServerWebSocket<WSData>, code: number, _reason: string): void {

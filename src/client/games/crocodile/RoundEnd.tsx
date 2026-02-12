@@ -33,7 +33,9 @@ export function RoundEnd({ state }: RoundEndProps) {
 				</p>
 			)}
 
-			<p className="hint-text">Игрок {shower?.name ?? "???"} показывал</p>
+			<p className="hint-text">
+				Игрок {shower?.name ?? "???"} {state.mode === "drawing" ? "рисовал" : "показывал"}
+			</p>
 
 			{guesser ? (
 				<div className="round-summary">
