@@ -19,8 +19,8 @@ export function RoundEnd({ state }: RoundEndProps) {
 	}, [state.timerEndsAt]);
 
 	const shower = state.players.find((p) => p.id === state.currentShowerId);
-	const guessers = state.players.filter((p) => p.id !== state.currentShowerId);
-	const guessedCount = state.guessedPlayerIds.length;
+	const guesserId = state.guessedPlayerIds[0];
+	const guesser = guesserId ? state.players.find((p) => p.id === guesserId) : null;
 	const isLastRound = state.currentRound >= state.totalRounds;
 
 	return (
@@ -35,24 +35,18 @@ export function RoundEnd({ state }: RoundEndProps) {
 
 			<p className="hint-text">Игрок {shower?.name ?? "???"} показывал</p>
 
-			<div className="round-summary">
-				<span className="counterCorrect">
-					Угадали: {guessedCount} / {guessers.length}
-				</span>
-			</div>
-
-			<div className="crocodile-guesser-list">
-				{guessers.map((p) => {
-					const guessed = state.guessedPlayerIds.includes(p.id);
-					return (
-						<PlayerChip key={p.id} avatarSeed={p.avatarSeed} name={p.name}>
-							<span className={guessed ? "crocodile-guesser-check" : "crocodile-guesser-miss"}>
-								{guessed ? "\u2713" : "\u2717"}
-							</span>
-						</PlayerChip>
-					);
-				})}
-			</div>
+			{guesser ? (
+				<div className="round-summary">
+					<span className="counterCorrect">Угадал:</span>
+					<PlayerChip avatarSeed={guesser.avatarSeed} name={guesser.name}>
+						<span className="crocodile-guesser-check">{"\u2713"}</span>
+					</PlayerChip>
+				</div>
+			) : (
+				<div className="round-summary">
+					<span className="counterSkip">Никто не угадал</span>
+				</div>
+			)}
 
 			<div className="round-end-footer">
 				<p className="round-end-timer">{secondsLeft} сек</p>

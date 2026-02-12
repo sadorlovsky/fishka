@@ -193,36 +193,17 @@ describe("crocodilePlugin", () => {
 			).toBe("Player not found");
 		});
 
-		test("rejects already guessed player", () => {
+		test("rejects markCorrect after round ended (first guesser already won)", () => {
 			const state = showingState(3);
 			const shower = state.currentShowerId;
 			const guesser = state.players.find((p) => p.id !== shower)!.id;
 
-			// Mark correct once
+			// Mark correct — round ends immediately
 			const next = plugin.reduce(state, { type: "markCorrect", guesserId: guesser }, shower)!;
 
-			// Try again
-			expect(plugin.validateAction(next, { type: "markCorrect", guesserId: guesser }, shower)).toBe(
-				"Player already guessed correctly",
-			);
-		});
-	});
-
-	describe("validateAction — skip", () => {
-		test("allows shower", () => {
-			const state = showingState(3);
-			expect(plugin.validateAction(state, { type: "skip" }, state.currentShowerId)).toBeNull();
-		});
-
-		test("rejects non-shower", () => {
-			const state = showingState(3);
-			const other = state.players.find((p) => p.id !== state.currentShowerId)!.id;
-			expect(plugin.validateAction(state, { type: "skip" }, other)).not.toBeNull();
-		});
-
-		test("rejects outside showing phase", () => {
-			const state = createState(3);
-			expect(plugin.validateAction(state, { type: "skip" }, state.currentShowerId)).toBe(
+			// Can't mark another — not in showing phase anymore
+			const other = state.players.find((p) => p.id !== shower && p.id !== guesser)!.id;
+			expect(plugin.validateAction(next, { type: "markCorrect", guesserId: other }, shower)).toBe(
 				"Not in showing phase",
 			);
 		});
@@ -280,7 +261,7 @@ describe("crocodilePlugin", () => {
 	});
 
 	describe("reduce — markCorrect", () => {
-		test("awards +1 to guesser and +1 to shower", () => {
+		test("awards +1 to guesser only, not shower", () => {
 			const state = showingState(3);
 			const shower = state.currentShowerId;
 			const guesser = state.players.find((p) => p.id !== shower)!.id;
@@ -288,7 +269,7 @@ describe("crocodilePlugin", () => {
 			const next = plugin.reduce(state, { type: "markCorrect", guesserId: guesser }, shower)!;
 
 			expect(next.players.find((p) => p.id === guesser)!.score).toBe(1);
-			expect(next.players.find((p) => p.id === shower)!.score).toBe(1);
+			expect(next.players.find((p) => p.id === shower)!.score).toBe(0);
 		});
 
 		test("adds guesserId to guessedPlayerIds", () => {
@@ -301,40 +282,18 @@ describe("crocodilePlugin", () => {
 			expect(next.guessedPlayerIds).toContain(guesser);
 		});
 
-		test("stays in showing phase when not all guessed", () => {
-			const state = showingState(3); // 3 players, 2 guessers
+		test("immediately transitions to roundEnd (first guesser wins)", () => {
+			const state = showingState(3);
 			const shower = state.currentShowerId;
 			const guesser = state.players.find((p) => p.id !== shower)!.id;
 
 			const next = plugin.reduce(state, { type: "markCorrect", guesserId: guesser }, shower)!;
 
-			expect(next.phase).toBe("showing");
-		});
-
-		test("transitions to roundEnd when all non-shower guessed", () => {
-			const state = showingState(3); // 3 players, 2 guessers
-			const shower = state.currentShowerId;
-			const guessers = state.players.filter((p) => p.id !== shower);
-
-			let next = plugin.reduce(state, { type: "markCorrect", guesserId: guessers[0]!.id }, shower)!;
-			expect(next.phase).toBe("showing");
-
-			next = plugin.reduce(next, { type: "markCorrect", guesserId: guessers[1]!.id }, shower)!;
 			expect(next.phase).toBe("roundEnd");
+			expect(next.guessedPlayerIds).toHaveLength(1);
 		});
 
-		test("shower gets +1 per guesser", () => {
-			const state = showingState(3);
-			const shower = state.currentShowerId;
-			const guessers = state.players.filter((p) => p.id !== shower);
-
-			let next = plugin.reduce(state, { type: "markCorrect", guesserId: guessers[0]!.id }, shower)!;
-			next = plugin.reduce(next, { type: "markCorrect", guesserId: guessers[1]!.id }, shower)!;
-
-			expect(next.players.find((p) => p.id === shower)!.score).toBe(2);
-		});
-
-		test("with 2 players: one markCorrect ends round", () => {
+		test("with 2 players: markCorrect ends round", () => {
 			const state = showingState(2);
 			const shower = state.currentShowerId;
 			const guesser = state.players.find((p) => p.id !== shower)!.id;
@@ -342,23 +301,8 @@ describe("crocodilePlugin", () => {
 			const next = plugin.reduce(state, { type: "markCorrect", guesserId: guesser }, shower)!;
 
 			expect(next.phase).toBe("roundEnd");
-		});
-	});
-
-	describe("reduce — skip", () => {
-		test("transitions to roundEnd", () => {
-			const state = showingState(3);
-			const next = plugin.reduce(state, { type: "skip" }, state.currentShowerId)!;
-			expect(next.phase).toBe("roundEnd");
-		});
-
-		test("scores unchanged on skip", () => {
-			const state = showingState(3);
-			const next = plugin.reduce(state, { type: "skip" }, state.currentShowerId)!;
-
-			for (const p of next.players) {
-				expect(p.score).toBe(0);
-			}
+			expect(next.players.find((p) => p.id === guesser)!.score).toBe(1);
+			expect(next.players.find((p) => p.id === shower)!.score).toBe(0);
 		});
 	});
 
@@ -369,16 +313,13 @@ describe("crocodilePlugin", () => {
 			expect(next.phase).toBe("roundEnd");
 		});
 
-		test("preserves scores from markCorrect", () => {
+		test("no scores awarded when timer expires", () => {
 			const state = showingState(3);
-			const shower = state.currentShowerId;
-			const guesser = state.players.find((p) => p.id !== shower)!.id;
+			const next = plugin.reduce(state, { type: "timerExpired" }, "__server__")!;
 
-			let next = plugin.reduce(state, { type: "markCorrect", guesserId: guesser }, shower)!;
-			next = plugin.reduce(next, { type: "timerExpired" }, "__server__")!;
-
-			expect(next.players.find((p) => p.id === guesser)!.score).toBe(1);
-			expect(next.players.find((p) => p.id === shower)!.score).toBe(1);
+			for (const p of next.players) {
+				expect(p.score).toBe(0);
+			}
 		});
 	});
 
@@ -521,13 +462,12 @@ describe("crocodilePlugin", () => {
 			const shower1 = state.currentShowerId;
 			const guessers1 = state.players.filter((p) => p.id !== shower1);
 
-			// Round 1: one player guesses, timer expires
+			// Round 1: first guesser wins → round ends immediately
 			state = plugin.reduce(state, { type: "markCorrect", guesserId: guessers1[0]!.id }, shower1)!;
-			state = plugin.reduce(state, { type: "timerExpired" }, "__server__")!;
 			expect(state.phase).toBe("roundEnd");
 
-			// Scores: shower1 +1, guesser +1
-			expect(state.players.find((p) => p.id === shower1)!.score).toBe(1);
+			// Scores: only guesser gets +1
+			expect(state.players.find((p) => p.id === shower1)!.score).toBe(0);
 			expect(state.players.find((p) => p.id === guessers1[0]!.id)!.score).toBe(1);
 
 			// Round 2
@@ -538,8 +478,7 @@ describe("crocodilePlugin", () => {
 			const shower2 = state.currentShowerId;
 			const guessers2 = state.players.filter((p) => p.id !== shower2);
 
-			// All guess correctly → auto round end
-			state = plugin.reduce(state, { type: "markCorrect", guesserId: guessers2[0]!.id }, shower2)!;
+			// First guesser wins → round ends
 			state = plugin.reduce(state, { type: "markCorrect", guesserId: guessers2[1]!.id }, shower2)!;
 			expect(state.phase).toBe("roundEnd");
 
@@ -548,10 +487,8 @@ describe("crocodilePlugin", () => {
 			expect(state.currentRound).toBe(3);
 			state = beginRound(state);
 
-			const shower3 = state.currentShowerId;
-
-			// Skip
-			state = plugin.reduce(state, { type: "skip" }, shower3)!;
+			// Timer expires — nobody scores
+			state = plugin.reduce(state, { type: "timerExpired" }, "__server__")!;
 			expect(state.phase).toBe("roundEnd");
 
 			// Game over
@@ -559,9 +496,9 @@ describe("crocodilePlugin", () => {
 			expect(state.phase).toBe("gameOver");
 			expect(plugin.isGameOver(state)).toBe(true);
 
-			// Verify total scores add up
+			// Total scores: 2 guessers got +1 each, no shower points
 			const totalScore = state.players.reduce((sum, p) => sum + p.score, 0);
-			expect(totalScore).toBe(6); // round1: 2 (shower+guesser), round2: 4 (shower*2 + 2 guessers)
+			expect(totalScore).toBe(2);
 		});
 	});
 });

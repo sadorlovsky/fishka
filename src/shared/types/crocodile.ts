@@ -87,10 +87,6 @@ export interface CrocodileMarkCorrectAction extends BaseGameAction {
 	guesserId: string;
 }
 
-export interface CrocodileSkipAction extends BaseGameAction {
-	type: "skip";
-}
-
 export interface CrocodileTimerExpiredAction extends BaseGameAction {
 	type: "timerExpired";
 }
@@ -102,6 +98,5 @@ export interface CrocodileNextRoundAction extends BaseGameAction {
 export type CrocodileAction =
 	| CrocodileBeginRoundAction
 	| CrocodileMarkCorrectAction
-	| CrocodileSkipAction
 	| CrocodileTimerExpiredAction
 	| CrocodileNextRoundAction;

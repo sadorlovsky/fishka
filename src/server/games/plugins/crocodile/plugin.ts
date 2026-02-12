@@ -91,15 +91,6 @@ export const crocodilePlugin: GamePlugin<CrocodileState, CrocodileAction, Crocod
 				}
 				return null;
 			}
-			case "skip": {
-				if (state.phase !== "showing") {
-					return "Not in showing phase";
-				}
-				if (playerId !== state.currentShowerId) {
-					return "Only the shower can skip";
-				}
-				return null;
-			}
 			case "beginRound": {
 				if (playerId !== "__server__") {
 					return "Only server can begin round";
@@ -143,41 +134,19 @@ export const crocodilePlugin: GamePlugin<CrocodileState, CrocodileAction, Crocod
 			}
 
 			case "markCorrect": {
-				const guessedPlayerIds = [...state.guessedPlayerIds, action.guesserId];
-
-				// +1 to guesser, +1 to shower
+				// First guesser wins — round ends immediately, +1 to guesser only
 				const players = state.players.map((p) => {
-					if (p.id === action.guesserId || p.id === state.currentShowerId) {
+					if (p.id === action.guesserId) {
 						return { ...p, score: p.score + 1 };
 					}
 					return p;
 				});
 
-				// Check if all non-shower players have guessed
-				const nonShowerCount = state.players.length - 1;
-				const allGuessed = guessedPlayerIds.length >= nonShowerCount;
-
-				if (allGuessed) {
-					return {
-						...state,
-						phase: "roundEnd",
-						guessedPlayerIds,
-						players,
-						timerEndsAt: Date.now() + ROUND_END_DELAY_MS,
-					};
-				}
-
-				return {
-					...state,
-					guessedPlayerIds,
-					players,
-				};
-			}
-
-			case "skip": {
 				return {
 					...state,
 					phase: "roundEnd",
+					guessedPlayerIds: [action.guesserId],
+					players,
 					timerEndsAt: Date.now() + ROUND_END_DELAY_MS,
 				};
 			}
