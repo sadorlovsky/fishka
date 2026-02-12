@@ -95,7 +95,7 @@ export function TableSeating({
 					hostId={hostId}
 				/>
 			)}
-			{west && (
+			{west ? (
 				<SeatChip
 					player={west}
 					seat="west"
@@ -103,9 +103,11 @@ export function TableSeating({
 					myPlayerId={myPlayerId}
 					hostId={hostId}
 				/>
+			) : (
+				<div className="tapeworm-seat tapeworm-seat--west" />
 			)}
 			<div className="tapeworm-table-board">{children}</div>
-			{east && (
+			{east ? (
 				<SeatChip
 					player={east}
 					seat="east"
@@ -113,6 +115,8 @@ export function TableSeating({
 					myPlayerId={myPlayerId}
 					hostId={hostId}
 				/>
+			) : (
+				<div className="tapeworm-seat tapeworm-seat--east" />
 			)}
 			{south && (
 				<SeatChip

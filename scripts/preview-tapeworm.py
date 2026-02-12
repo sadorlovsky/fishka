@@ -1,8 +1,8 @@
 """
-Open 4 browsers, create a Tapeworm game with 4 players, and take a screenshot.
+Open N browsers, create a Tapeworm game with N players, and take screenshots.
 
 Usage:
-    python scripts/preview-tapeworm.py [--port PORT]
+    python scripts/preview-tapeworm.py [--players 3] [--port PORT]
 
 Requires: pip install playwright && playwright install
 Uses the running dev server (default localhost:3000).
@@ -62,17 +62,26 @@ def join_room(page, name, code):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Preview Tapeworm with 4 players")
+    parser = argparse.ArgumentParser(description="Preview Tapeworm with N players")
+    parser.add_argument(
+        "--players",
+        type=int,
+        default=4,
+        choices=[2, 3, 4],
+        help="Number of players (2-4)",
+    )
     parser.add_argument("--port", type=int, default=3000, help="Dev server port")
     args = parser.parse_args()
+    num_players = args.players
     base_url = f"http://localhost:{args.port}"
+    names = NAMES[:num_players]
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
 
-        # Create 4 separate contexts (separate sessions)
+        # Create separate contexts (separate sessions)
         pages = []
-        for i in range(4):
+        for i in range(num_players):
             ctx = browser.new_context(
                 viewport={"width": 430, "height": 932},  # iPhone 14 Pro Max
             )
@@ -82,13 +91,13 @@ def main():
             pages.append(page)
 
         # Player 1 creates the room
-        code = create_room(pages[0], NAMES[0])
+        code = create_room(pages[0], names[0])
         print(f"Room created: {code}")
 
-        # Players 2-4 join
-        for i in range(1, 4):
-            join_room(pages[i], NAMES[i], code)
-            print(f"{NAMES[i]} joined")
+        # Other players join
+        for i in range(1, num_players):
+            join_room(pages[i], names[i], code)
+            print(f"{names[i]} joined")
 
         time.sleep(0.5)
 
@@ -98,14 +107,14 @@ def main():
         start_btn.click()
 
         # Wait for game to load on all pages
-        for i, page in enumerate(pages):
+        for page in pages:
             page.wait_for_selector(".tapeworm-table", timeout=10000)
 
         time.sleep(1)  # let animations settle
 
         # Take screenshots
         for i, page in enumerate(pages):
-            path = f"screenshots/tapeworm-player{i + 1}.png"
+            path = f"screenshots/tapeworm-{num_players}p-player{i + 1}.png"
             page.screenshot(path=path, full_page=False)
             print(f"Screenshot saved: {path}")
 
