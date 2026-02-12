@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { CrocodilePlayerView } from "@/shared/types/crocodile";
-import { Avatar } from "../../components/Avatar";
+import { PlayerChip } from "../../components/PlayerChip";
 
 interface RoundEndProps {
 	state: CrocodilePlayerView;
@@ -45,16 +45,11 @@ export function RoundEnd({ state }: RoundEndProps) {
 				{guessers.map((p) => {
 					const guessed = state.guessedPlayerIds.includes(p.id);
 					return (
-						<div
-							key={p.id}
-							className={`crocodile-guesser-item${guessed ? " crocodile-guesser-item--guessed" : ""}`}
-						>
-							<Avatar seed={p.avatarSeed} size="sm" />
-							<span className="crocodile-guesser-name">{p.name}</span>
+						<PlayerChip key={p.id} avatarSeed={p.avatarSeed} name={p.name}>
 							<span className={guessed ? "crocodile-guesser-check" : "crocodile-guesser-miss"}>
 								{guessed ? "\u2713" : "\u2717"}
 							</span>
-						</div>
+						</PlayerChip>
 					);
 				})}
 			</div>

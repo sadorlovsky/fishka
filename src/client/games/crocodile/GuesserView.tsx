@@ -1,5 +1,5 @@
 import type { CrocodilePlayerView } from "@/shared/types/crocodile";
-import { Avatar } from "../../components/Avatar";
+import { PlayerChip } from "../../components/PlayerChip";
 import { Timer } from "../../components/Timer";
 
 interface GuesserViewProps {
@@ -34,14 +34,9 @@ export function GuesserView({ state }: GuesserViewProps) {
 				{guessers.map((p) => {
 					const guessed = state.guessedPlayerIds.includes(p.id);
 					return (
-						<div
-							key={p.id}
-							className={`crocodile-guesser-item${guessed ? " crocodile-guesser-item--guessed" : ""}`}
-						>
-							<Avatar seed={p.avatarSeed} size="sm" />
-							<span className="crocodile-guesser-name">{p.name}</span>
+						<PlayerChip key={p.id} avatarSeed={p.avatarSeed} name={p.name}>
 							{guessed && <span className="crocodile-guesser-check">{"\u2713"}</span>}
-						</div>
+						</PlayerChip>
 					);
 				})}
 			</div>

@@ -1,5 +1,5 @@
 import type { CrocodilePlayerView } from "@/shared/types/crocodile";
-import { Avatar } from "../../components/Avatar";
+import { PlayerChip } from "../../components/PlayerChip";
 import { plural } from "../../utils/plural";
 
 interface GameOverProps {
@@ -27,14 +27,15 @@ export function GameOver({ state, currentPlayerId, isHost, onReturnToLobby }: Ga
 
 			<div className="final-standings">
 				{sorted.map((player, i) => (
-					<div
-						key={player.id}
-						className={`final-player${player.id === currentPlayerId ? " current" : ""}`}
-					>
+					<div key={player.id} className="final-row">
 						<span className="final-rank">{i + 1}</span>
-						<Avatar seed={player.avatarSeed} size="sm" />
-						<span className="final-name">{player.name}</span>
-						<span className="score">{player.score}</span>
+						<PlayerChip
+							avatarSeed={player.avatarSeed}
+							name={player.name}
+							isCurrent={player.id === currentPlayerId}
+						>
+							<span className="score">{player.score}</span>
+						</PlayerChip>
 					</div>
 				))}
 			</div>

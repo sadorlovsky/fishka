@@ -13,6 +13,11 @@ function getRoomCodeFromUrl(): string | null {
 
 const initialJoinCode = getRoomCodeFromUrl();
 const hasExistingSession = !!localStorage.getItem("sessionToken");
+console.log("[router] module init:", {
+	initialJoinCode,
+	hasExistingSession,
+	sessionToken: localStorage.getItem("sessionToken")?.slice(0, 8),
+});
 
 function Router() {
 	const { room, restoring, status, send, ensurePlayer, lastError } = useConnection();
@@ -40,6 +45,12 @@ function Router() {
 
 	// Auto-join for NEW users arriving via /room/CODE link
 	useEffect(() => {
+		console.log("[router] new-user effect:", {
+			initialJoinCode,
+			hasExistingSession,
+			joinAttempted: joinAttemptedRef.current,
+			isConnected,
+		});
 		if (!initialJoinCode || hasExistingSession || joinAttemptedRef.current) {
 			return;
 		}
@@ -49,6 +60,7 @@ function Router() {
 		joinAttemptedRef.current = true;
 		const name = localStorage.getItem("playerName") || generateRandomName();
 		const avatarSeed = Number(localStorage.getItem("avatarSeed")) || 0;
+		console.log("[router] new-user: calling ensurePlayer + joinRoom", initialJoinCode);
 		ensurePlayer(name, avatarSeed, () => {
 			send({ type: "joinRoom", roomCode: initialJoinCode });
 		});
@@ -57,6 +69,14 @@ function Router() {
 	// Auto-join for EXISTING users: after session restores, if not in a room, join via URL
 	// Also mark as attempted if reconnect already restored the room (so we don't re-join on leave)
 	useEffect(() => {
+		console.log("[router] existing-user effect:", {
+			initialJoinCode,
+			hasExistingSession,
+			joinAttempted: joinAttemptedRef.current,
+			restoring,
+			hasRoom: !!room,
+			isConnected,
+		});
 		if (!initialJoinCode || !hasExistingSession || joinAttemptedRef.current) {
 			return;
 		}
@@ -65,6 +85,7 @@ function Router() {
 		}
 		if (room) {
 			// Reconnect already restored us into a room — no auto-join needed
+			console.log("[router] existing-user: room already restored, skipping");
 			joinAttemptedRef.current = true;
 			return;
 		}
@@ -72,6 +93,7 @@ function Router() {
 			return;
 		}
 		joinAttemptedRef.current = true;
+		console.log("[router] existing-user: sending joinRoom", initialJoinCode);
 		send({ type: "joinRoom", roomCode: initialJoinCode });
 	}, [isConnected, restoring, room, send]);
 
@@ -85,6 +107,7 @@ function Router() {
 			return;
 		}
 		if (lastError) {
+			console.log("[router] joiningViaUrl: got error, redirecting home", lastError);
 			setJoiningViaUrl(false);
 			navigate("/");
 			return;
@@ -94,6 +117,7 @@ function Router() {
 			return;
 		}
 		const timeout = setTimeout(() => {
+			console.log("[router] joiningViaUrl: timeout, redirecting home");
 			setJoiningViaUrl(false);
 			navigate("/");
 		}, 5000);

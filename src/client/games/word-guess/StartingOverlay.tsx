@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { WordGuessPlayerView } from "@/shared/types/word-guess";
-import { Avatar } from "../../components/Avatar";
+import { PlayerChip } from "../../components/PlayerChip";
 import "./StartingOverlay.css";
 
 interface StartingOverlayProps {
@@ -32,12 +32,11 @@ export function StartingOverlay({ state }: StartingOverlayProps) {
 				{isFirstRound ? "Игра начинается!" : `Раунд ${state.currentRound}`}
 			</p>
 			{explainer && (
-				<div className="starting-overlay-explainer">
-					<Avatar seed={explainer.avatarSeed} />
-					<p className="starting-overlay-explainer-text">
-						{state.isExplainer ? "Вы объясняете" : `${explainer.name} объясняет`}
-					</p>
-				</div>
+				<PlayerChip
+					avatarSeed={explainer.avatarSeed}
+					name={explainer.name}
+					subtitle={state.isExplainer ? "вы объясняете" : "объясняет"}
+				/>
 			)}
 			<p className="starting-overlay-countdown">{secondsLeft}</p>
 		</div>

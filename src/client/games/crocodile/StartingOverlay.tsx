@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { CrocodilePlayerView } from "@/shared/types/crocodile";
-import { Avatar } from "../../components/Avatar";
+import { PlayerChip } from "../../components/PlayerChip";
 
 interface StartingOverlayProps {
 	state: CrocodilePlayerView;
@@ -31,12 +31,11 @@ export function StartingOverlay({ state }: StartingOverlayProps) {
 				{isFirstRound ? "Игра начинается!" : `Раунд ${state.currentRound}`}
 			</p>
 			{shower && (
-				<div className="starting-overlay-explainer">
-					<Avatar seed={shower.avatarSeed} />
-					<p className="starting-overlay-explainer-text">
-						{state.isShower ? "Вы показываете" : `${shower.name} показывает`}
-					</p>
-				</div>
+				<PlayerChip
+					avatarSeed={shower.avatarSeed}
+					name={shower.name}
+					subtitle={state.isShower ? "вы показываете" : "показывает"}
+				/>
 			)}
 			<p className="starting-overlay-countdown">{secondsLeft}</p>
 		</div>

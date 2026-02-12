@@ -136,6 +136,7 @@ export interface TapewormPlayerView {
 	board: Record<string, PlacedCard>;
 	hand: HandCard[];
 	players: TapewormPlayerState[];
+	turnOrder: string[];
 	currentPlayerId: string;
 	isMyTurn: boolean;
 	hasDrawn: boolean;

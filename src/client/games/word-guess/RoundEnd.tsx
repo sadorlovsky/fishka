@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import type { WordGuessPlayerView } from "@/shared/types/word-guess";
-import { Avatar } from "../../components/Avatar";
 import "./RoundEnd.css";
 
 function RoundEndCountdown({ endsAt }: { endsAt: number }) {
@@ -39,29 +38,17 @@ export function RoundEnd({ state, isHost, onNextRound }: RoundEndProps) {
 
 			{state.roundResults.length > 0 && (
 				<div className="round-words">
-					{[...state.roundResults].reverse().map((result) => {
-						const guesser = result.guesserId
-							? state.players.find((p) => p.id === result.guesserId)
-							: null;
-
-						return (
-							<div
-								key={result.word}
-								className={`round-word-item ${result.result === "correct" ? "correct" : "skipped"}`}
-							>
-								<span className="round-word-icon">
-									{result.result === "correct" ? "\u2713" : "\u2717"}
-								</span>
-								<span className="round-word-text">{result.word}</span>
-								{guesser && (
-									<span className="round-word-guesser">
-										<Avatar seed={guesser.avatarSeed} size="sm" />
-										{guesser.name}
-									</span>
-								)}
-							</div>
-						);
-					})}
+					{[...state.roundResults].reverse().map((result) => (
+						<div
+							key={result.word}
+							className={`round-word-item ${result.result === "correct" ? "correct" : "skipped"}`}
+						>
+							<span className="round-word-icon">
+								{result.result === "correct" ? "\u2713" : "\u2717"}
+							</span>
+							<span className="round-word-text">{result.word}</span>
+						</div>
+					))}
 				</div>
 			)}
 

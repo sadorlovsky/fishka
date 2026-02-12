@@ -41,19 +41,14 @@
 	gap: 0.375rem;
 }
 
-.final-player {
+.final-row {
 	display: flex;
 	align-items: center;
-	gap: 0.75rem;
-	padding: 0.625rem 0.75rem;
-	background: var(--color-surface);
-	border-radius: var(--radius-sm);
-	border: 1.5px solid transparent;
+	gap: 0.5rem;
 }
 
-.current {
-	border-color: var(--color-primary);
-	background: linear-gradient(135deg, var(--color-primary-glow) 0%, var(--color-surface) 60%);
+.final-row .player-chip {
+	flex: 1;
 }
 
 .final-rank {
@@ -62,11 +57,6 @@
 	color: var(--color-text-muted);
 	width: 1.5rem;
 	text-align: center;
-}
-
-.final-name {
-	flex: 1;
-	font-weight: 600;
 }
 
 .final-team {

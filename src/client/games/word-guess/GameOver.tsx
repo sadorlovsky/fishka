@@ -1,5 +1,5 @@
 import type { WordGuessPlayerView } from "@/shared/types/word-guess";
-import { Avatar } from "../../components/Avatar";
+import { PlayerChip } from "../../components/PlayerChip";
 import "./GameOver.css";
 
 interface GameOverProps {
@@ -54,14 +54,15 @@ function FFAGameOver({ state, currentPlayerId }: SubProps) {
 
 			<div className="final-standings">
 				{sorted.map((player, i) => (
-					<div
-						key={player.id}
-						className={`final-player${player.id === currentPlayerId ? " current" : ""}`}
-					>
+					<div key={player.id} className="final-row">
 						<span className="final-rank">{i + 1}</span>
-						<Avatar seed={player.avatarSeed} size="sm" />
-						<span className="final-name">{player.name}</span>
-						<span className="score">{player.score}</span>
+						<PlayerChip
+							avatarSeed={player.avatarSeed}
+							name={player.name}
+							isCurrent={player.id === currentPlayerId}
+						>
+							<span className="score">{player.score}</span>
+						</PlayerChip>
 					</div>
 				))}
 			</div>
@@ -107,14 +108,14 @@ function TeamsGameOver({ state, currentPlayerId }: SubProps) {
 								<span className="score">{state.teamScores?.[teamId] ?? 0}</span>
 							</div>
 							{teamPlayers.map((player) => (
-								<div
+								<PlayerChip
 									key={player.id}
-									className={`final-player${player.id === currentPlayerId ? " current" : ""}`}
+									avatarSeed={player.avatarSeed}
+									name={player.name}
+									isCurrent={player.id === currentPlayerId}
 								>
-									<Avatar seed={player.avatarSeed} size="sm" />
-									<span className="final-name">{player.name}</span>
 									<span className="score">{player.score}</span>
-								</div>
+								</PlayerChip>
 							))}
 						</div>
 					);

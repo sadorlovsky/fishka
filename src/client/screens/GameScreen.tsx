@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { PlayerInfo } from "@/shared/types/room";
-import { Avatar } from "../components/Avatar";
+import { PlayerChip } from "../components/PlayerChip";
 import { useConnection } from "../contexts/ConnectionContext";
 import { CrocodileGame } from "../games/crocodile/CrocodileGame";
 import { TapewormGame } from "../games/tapeworm/TapewormGame";
@@ -11,12 +11,14 @@ function PauseOverlay({
 	playerName,
 	timeoutAt,
 	players,
+	currentPlayerId,
 	isHost,
 	onEndGame,
 }: {
 	playerName: string;
 	timeoutAt: number;
 	players: PlayerInfo[];
+	currentPlayerId: string | null;
 	isHost: boolean;
 	onEndGame: () => void;
 }) {
@@ -44,17 +46,19 @@ function PauseOverlay({
 			<div className="pause-overlay-body">
 				<ul className="pause-overlay-players">
 					{players.map((p) => (
-						<li
-							key={p.id}
-							className={`pause-overlay-player${!p.isConnected ? " pause-overlay-player--offline" : ""}`}
-						>
-							<Avatar seed={p.avatarSeed} size="sm" />
-							<span className="pause-overlay-player-name">{p.name}</span>
-							<span
-								className={`pause-overlay-player-status ${p.isConnected ? "pause-overlay-player-status--online" : "pause-overlay-player-status--offline"}`}
+						<li key={p.id}>
+							<PlayerChip
+								avatarSeed={p.avatarSeed}
+								name={p.name}
+								isMe={p.id === currentPlayerId}
+								disconnected={!p.isConnected}
 							>
-								{p.isConnected ? "в сети" : "не в сети"}
-							</span>
+								<span
+									className={`pause-overlay-player-status ${p.isConnected ? "pause-overlay-player-status--online" : "pause-overlay-player-status--offline"}`}
+								>
+									{p.isConnected ? "в сети" : "не в сети"}
+								</span>
+							</PlayerChip>
 						</li>
 					))}
 				</ul>
@@ -96,6 +100,7 @@ export function GameScreen() {
 					playerName={pauseInfo.disconnectedPlayerName}
 					timeoutAt={pauseInfo.timeoutAt}
 					players={room.players}
+					currentPlayerId={playerId}
 					isHost={isHost}
 					onEndGame={() => send({ type: "endGame" })}
 				/>

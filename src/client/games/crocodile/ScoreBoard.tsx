@@ -20,6 +20,7 @@ export function ScoreBoard({ state, currentPlayerId }: ScoreBoardProps) {
 						key={player.id}
 						avatarSeed={player.avatarSeed}
 						name={player.name}
+						isMe={player.id === currentPlayerId}
 						isCurrent={player.id === currentPlayerId}
 						subtitle={player.id === state.currentShowerId ? "показывает" : undefined}
 					>

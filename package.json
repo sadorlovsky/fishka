@@ -10,7 +10,8 @@
     "test": "bun test",
     "lint": "biome check src/",
     "lint:fix": "biome check --write src/",
-    "format": "biome format --write src/"
+    "format": "biome format --write src/",
+    "db:reset": "bun scripts/db-reset.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

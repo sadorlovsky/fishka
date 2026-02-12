@@ -389,6 +389,7 @@ export function TapewormGame() {
 			<div className="tapeworm">
 				<TableSeating
 					players={state.players}
+					turnOrder={state.turnOrder}
 					currentPlayerId={state.currentPlayerId}
 					myPlayerId={playerId}
 					hostId={room?.hostId ?? null}

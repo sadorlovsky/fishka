@@ -1,5 +1,5 @@
 import type { TapewormPlayerState } from "@/shared/types/tapeworm";
-import { Avatar } from "../../components/Avatar";
+import { PlayerChip } from "../../components/PlayerChip";
 
 interface GameOverProps {
 	players: TapewormPlayerState[];
@@ -16,24 +16,19 @@ export function GameOver({ players, winnerId, isHost, onReturnToLobby }: GameOve
 		<div className="tapeworm-gameover">
 			{winner && (
 				<div className="tapeworm-gameover-winner">
-					<Avatar seed={winner.avatarSeed} />
-					<p className="tapeworm-gameover-winner-name">{winner.name}</p>
-					<p className="tapeworm-gameover-winner-label">победил!</p>
+					<PlayerChip avatarSeed={winner.avatarSeed} name={winner.name} subtitle="победил!" />
 				</div>
 			)}
 
 			<div className="tapeworm-gameover-standings">
 				{sorted.map((p, i) => (
-					<div
-						key={p.id}
-						className={`tapeworm-gameover-row${p.id === winnerId ? " tapeworm-gameover-row--winner" : ""}`}
-					>
+					<div key={p.id} className="tapeworm-gameover-row">
 						<span className="tapeworm-gameover-rank">{i + 1}</span>
-						<Avatar seed={p.avatarSeed} size="sm" />
-						<span className="tapeworm-gameover-name">{p.name}</span>
-						<span className="tapeworm-gameover-cards">
-							{p.handSize === 0 ? "0 карт" : `${p.handSize} карт`}
-						</span>
+						<PlayerChip avatarSeed={p.avatarSeed} name={p.name} isCurrent={p.id === winnerId}>
+							<span className="tapeworm-gameover-cards">
+								{p.handSize === 0 ? "0 карт" : `${p.handSize} карт`}
+							</span>
+						</PlayerChip>
 					</div>
 				))}
 			</div>

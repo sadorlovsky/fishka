@@ -40,3 +40,6 @@ data/
 e2e/.venv/
 __pycache__/
 .pytest_cache/
+
+# Preview screenshots
+screenshots/
