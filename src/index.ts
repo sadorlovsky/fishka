@@ -53,11 +53,13 @@ if (restoredPlayers > 0 || restoredRooms > 0) {
 
 		// If game wasn't already paused, pause it now (all players are disconnected)
 		if (!pauseInfo && result.engine) {
-			// Save timer remaining from timerEndsAt before pausing
+			// Use persisted_at (last save time) to calculate remaining timer accurately
+			// This avoids counting server downtime against the game timer
+			const lastSaveTime = row.persisted_at || Date.now();
 			const stateAny = gameState as Record<string, unknown>;
 			const savedRemaining =
 				typeof stateAny.timerEndsAt === "number"
-					? Math.max(0, stateAny.timerEndsAt - Date.now())
+					? Math.max(0, stateAny.timerEndsAt - lastSaveTime)
 					: null;
 
 			// Find any player to attribute the pause to (they're all disconnected)
@@ -89,6 +91,12 @@ const server = Bun.serve({
 	port: Number(process.env.PORT) || 3000,
 	hostname: "0.0.0.0",
 	routes: {
+		"/sw.js": new Response(await Bun.file("public/sw.js").bytes(), {
+			headers: {
+				"Content-Type": "application/javascript",
+				"Cache-Control": "no-cache",
+			},
+		}),
 		"/*": index,
 	},
 

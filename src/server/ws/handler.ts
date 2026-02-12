@@ -123,11 +123,26 @@ function handleConnect(
 						if (engine) {
 							engine.resume(player.id);
 
-							const plugin = engine.getPlugin();
-							const state = engine.getState();
-							if (state) {
-								const view = plugin.getPlayerView(state, player.id);
-								send(ws, { type: "gameState", gameState: view });
+							// Send current game state (if still paused, broadcastState will fire on full resume)
+							if (!engine.isPaused()) {
+								const plugin = engine.getPlugin();
+								const state = engine.getState();
+								if (state) {
+									const view = plugin.getPlayerView(state, player.id);
+									send(ws, { type: "gameState", gameState: view });
+								}
+							} else {
+								// Game still paused — send state with paused timer + pause info
+								const plugin = engine.getPlugin();
+								const state = engine.getState();
+								if (state) {
+									const view = plugin.getPlayerView(state, player.id);
+									send(ws, { type: "gameState", gameState: view });
+								}
+								const pauseInfo = engine.getPauseInfo();
+								if (pauseInfo) {
+									send(ws, { type: "gamePaused", pauseInfo });
+								}
 							}
 						}
 					}

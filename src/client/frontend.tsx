@@ -17,3 +17,7 @@ if (import.meta.hot) {
 } else {
 	createRoot(elem).render(app);
 }
+
+if ("serviceWorker" in navigator) {
+	navigator.serviceWorker.register("/sw.js");
+}

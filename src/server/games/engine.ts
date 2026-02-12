@@ -130,7 +130,17 @@ export class GameEngine {
 		if (!this.paused || !this.pauseInfo || !this.state) {
 			return;
 		}
-		if (this.pauseInfo.disconnectedPlayerId !== reconnectedPlayerId) {
+
+		// Check if ALL players in the room are now connected
+		const room = roomManager.get(this.roomCode);
+		if (!room) {
+			return;
+		}
+		const allConnected = room.playerIds.every((id) => {
+			const p = playerManager.get(id);
+			return p?.isConnected;
+		});
+		if (!allConnected) {
 			return;
 		}
 
@@ -221,6 +231,10 @@ export class GameEngine {
 			}
 			player.ws.send(msg);
 		}
+	}
+
+	isPaused(): boolean {
+		return this.paused;
 	}
 
 	getPauseInfo(): PauseInfo | null {

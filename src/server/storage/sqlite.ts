@@ -49,13 +49,21 @@ export function initDatabase(): void {
       settings_json TEXT NOT NULL,
       game_state_json TEXT,
       pause_info_json TEXT,
-      created_at INTEGER NOT NULL
+      created_at INTEGER NOT NULL,
+      persisted_at INTEGER NOT NULL DEFAULT 0
     )
   `);
 
 	db.run(`
     CREATE INDEX IF NOT EXISTS idx_words_language ON words(language)
   `);
+
+	// Migration: add persisted_at column if missing
+	try {
+		db.run("ALTER TABLE rooms ADD COLUMN persisted_at INTEGER NOT NULL DEFAULT 0");
+	} catch {
+		// Column already exists
+	}
 }
 
 // --- Words ---
@@ -166,12 +174,12 @@ function stmts() {
 		_deleteSessionStmt = db.prepare("DELETE FROM sessions WHERE player_id = ?");
 		_updateSessionRoomStmt = db.prepare("UPDATE sessions SET room_code = ? WHERE player_id = ?");
 		_upsertRoomStmt = db.prepare(
-			`INSERT OR REPLACE INTO rooms (code, status, host_id, player_ids_json, settings_json, game_state_json, pause_info_json, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			`INSERT OR REPLACE INTO rooms (code, status, host_id, player_ids_json, settings_json, game_state_json, pause_info_json, created_at, persisted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		);
 		_deleteRoomStmt = db.prepare("DELETE FROM rooms WHERE code = ?");
 		_updateRoomGameStateStmt = db.prepare(
-			"UPDATE rooms SET game_state_json = ?, status = ? WHERE code = ?",
+			"UPDATE rooms SET game_state_json = ?, status = ?, persisted_at = ? WHERE code = ?",
 		);
 		_updateRoomPlayersStmt = db.prepare(
 			"UPDATE rooms SET player_ids_json = ?, host_id = ? WHERE code = ?",
@@ -255,6 +263,7 @@ export function persistRoom(data: {
 		data.gameState != null ? JSON.stringify(data.gameState) : null,
 		data.pauseInfo != null ? JSON.stringify(data.pauseInfo) : null,
 		data.createdAt,
+		Date.now(),
 	);
 }
 
@@ -270,6 +279,7 @@ export function updatePersistedGameState(
 	stmts().updateRoomGameState.run(
 		gameState != null ? JSON.stringify(gameState) : null,
 		status,
+		Date.now(),
 		code,
 	);
 }
@@ -299,6 +309,7 @@ interface RoomRow {
 	game_state_json: string | null;
 	pause_info_json: string | null;
 	created_at: number;
+	persisted_at: number;
 }
 
 export function loadAllRooms(): RoomRow[] {

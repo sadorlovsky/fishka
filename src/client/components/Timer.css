@@ -36,3 +36,7 @@
 		opacity: 0.5;
 	}
 }
+
+.timer--paused {
+	opacity: 0.5;
+}
