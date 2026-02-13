@@ -1,15 +1,16 @@
 import { useCallback, useState } from "react";
 
-interface WordGuessInputProps {
+interface TextGuessInputProps {
 	dispatch: (action: unknown) => void;
 	disabled?: boolean;
+	placeholder?: string;
 }
 
-export function WordGuessInput({ dispatch, disabled }: WordGuessInputProps) {
+export function TextGuessInput({ dispatch, disabled, placeholder }: TextGuessInputProps) {
 	const [word, setWord] = useState("");
 
 	const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-		const filtered = e.target.value.replace(/[^а-яёА-ЯЁ]/g, "");
+		const filtered = e.target.value.replace(/[^a-zA-Zа-яёА-ЯЁ\- ]/g, "");
 		setWord(filtered);
 	}, []);
 
@@ -18,7 +19,7 @@ export function WordGuessInput({ dispatch, disabled }: WordGuessInputProps) {
 		if (!trimmed) {
 			return;
 		}
-		dispatch({ type: "guessWord", word: trimmed.toLowerCase() });
+		dispatch({ type: "guess", word: trimmed.toLowerCase() });
 		setWord("");
 	}, [word, dispatch]);
 
@@ -32,18 +33,23 @@ export function WordGuessInput({ dispatch, disabled }: WordGuessInputProps) {
 	);
 
 	return (
-		<div className="hangman-word-guess">
+		<div className="text-guess">
 			<input
 				className="input"
 				type="text"
 				value={word}
 				onChange={handleChange}
 				onKeyDown={handleKeyDown}
-				placeholder="Угадать слово целиком..."
+				placeholder={placeholder ?? "Введите ваш ответ..."}
 				disabled={disabled}
+				autoComplete="off"
 			/>
-			<button className="btn" onClick={handleSubmit} disabled={disabled || !word.trim()}>
-				Угадать
+			<button
+				className="btn btn-primary"
+				onClick={handleSubmit}
+				disabled={disabled || !word.trim()}
+			>
+				Ответить
 			</button>
 		</div>
 	);

@@ -483,8 +483,7 @@ function handleKickPlayer(
 
 	const targetPlayer = playerManager.get(msg.targetPlayerId);
 
-	// Ban + remove from room
-	roomManager.ban(room.code, msg.targetPlayerId);
+	// Remove from room (ban API preserved but not called from UI)
 	roomManager.leave(room.code, msg.targetPlayerId);
 
 	// Notify kicked player

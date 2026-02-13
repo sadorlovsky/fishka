@@ -11,6 +11,7 @@ import type {
 	WordGuessState,
 } from "@/shared/types/word-guess";
 import { DEFAULT_WORD_GUESS_CONFIG } from "@/shared/types/word-guess";
+import { wordsMatch } from "@/shared/utils/normalize-word";
 import { getWord } from "./words";
 
 function shuffle<T>(arr: T[]): T[] {
@@ -169,6 +170,7 @@ export const wordGuessPlugin: GamePlugin<WordGuessState, WordGuessAction, WordGu
 			roundTimeSeconds: merged.roundTimeSeconds,
 			wordLanguage: merged.wordLanguage,
 			difficulty: merged.difficulty,
+			textMode: merged.textMode ?? false,
 		};
 	},
 
@@ -218,6 +220,28 @@ export const wordGuessPlugin: GamePlugin<WordGuessState, WordGuessAction, WordGu
 				}
 				return null;
 			}
+			case "guess": {
+				if (state.phase !== "explaining") {
+					return "Not in explaining phase";
+				}
+				if (!state.textMode) {
+					return "Text mode is not enabled";
+				}
+				if (playerId === state.currentExplainerId) {
+					return "Explainer cannot guess";
+				}
+				if (!action.word || action.word.trim().length === 0) {
+					return "Guess cannot be empty";
+				}
+				if (state.mode === "teams") {
+					const guesser = state.players.find((p) => p.id === playerId);
+					const explainer = state.players.find((p) => p.id === state.currentExplainerId);
+					if (guesser?.teamId !== explainer?.teamId) {
+						return "Can only guess for your own team";
+					}
+				}
+				return null;
+			}
 			case "beginRound": {
 				if (playerId !== "__server__") {
 					return "Only server can begin round";
@@ -232,7 +256,7 @@ export const wordGuessPlugin: GamePlugin<WordGuessState, WordGuessAction, WordGu
 		}
 	},
 
-	reduce(state: WordGuessState, action: WordGuessAction, _playerId: string): WordGuessState | null {
+	reduce(state: WordGuessState, action: WordGuessAction, playerId: string): WordGuessState | null {
 		switch (action.type) {
 			case "correct": {
 				const teamKey = getTeamKey(state);
@@ -349,6 +373,46 @@ export const wordGuessPlugin: GamePlugin<WordGuessState, WordGuessAction, WordGu
 				};
 			}
 
+			case "guess": {
+				if (!wordsMatch(action.word, state.currentWord)) {
+					return { ...state };
+				}
+
+				const teamKey = getTeamKey(state);
+				const usedWords = getUsedWords(state);
+				const word = nextWord(state.wordLanguage, state.difficulty, usedWords);
+
+				const players = state.players.map((p) => {
+					if (state.mode === "ffa" && p.id === playerId) {
+						return { ...p, score: p.score + 1 };
+					}
+					return p;
+				});
+
+				let teamScores = state.teamScores;
+				if (state.mode === "teams" && teamScores) {
+					const explainer = state.players.find((p) => p.id === state.currentExplainerId);
+					if (explainer?.teamId) {
+						teamScores = {
+							...teamScores,
+							[explainer.teamId]: (teamScores[explainer.teamId] ?? 0) + 1,
+						};
+					}
+				}
+
+				return {
+					...state,
+					currentWord: word,
+					wordsUsedByTeam: addUsedWord(state.wordsUsedByTeam, teamKey, word),
+					roundResults: [
+						...state.roundResults,
+						{ word: state.currentWord, result: "correct", guesserId: playerId },
+					],
+					players,
+					teamScores,
+				};
+			}
+
 			default:
 				return null;
 		}
@@ -377,6 +441,7 @@ export const wordGuessPlugin: GamePlugin<WordGuessState, WordGuessAction, WordGu
 			roundResults: state.roundResults,
 			roundCorrectCount: correctCount,
 			roundSkipCount: skipCount,
+			textMode: state.textMode,
 		};
 	},
 
@@ -399,6 +464,7 @@ export const wordGuessPlugin: GamePlugin<WordGuessState, WordGuessAction, WordGu
 			roundResults: state.roundResults,
 			roundCorrectCount: correctCount,
 			roundSkipCount: skipCount,
+			textMode: state.textMode,
 		};
 	},
 

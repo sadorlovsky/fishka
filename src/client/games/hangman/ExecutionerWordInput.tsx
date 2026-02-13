@@ -13,8 +13,10 @@ export function ExecutionerWordInput({ dispatch }: ExecutionerWordInputProps) {
 	const isValid = WORD_REGEX.test(word);
 
 	const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-		// Filter to Cyrillic only
-		const filtered = e.target.value.replace(/[^а-яёА-ЯЁ]/g, "").slice(0, 15);
+		const filtered = e.target.value
+			.replace(/[^а-яёА-ЯЁ]/g, "")
+			.slice(0, 15)
+			.toUpperCase();
 		setWord(filtered);
 	}, []);
 

@@ -62,7 +62,7 @@ export function WordGuessGame() {
 			{state.isExplainer ? (
 				<ExplainerView state={state} dispatch={dispatch} />
 			) : (
-				<WatcherView state={state} />
+				<WatcherView state={state} dispatch={dispatch} />
 			)}
 		</div>
 	);

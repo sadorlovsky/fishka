@@ -76,6 +76,7 @@ function WordGuessSettings({
 				<p className="settings-summary">
 					Режим: {config.mode === "ffa" ? "Каждый за себя" : "Команды"} · Слова:{" "}
 					{DIFFICULTY_LABELS[String(config.difficulty)]}
+					{config.textMode ? " · Ответ: Текстом" : " · Ответ: Голосом"}
 				</p>
 				<p className="settings-summary">
 					{plural(recommended.roundTimeSeconds, "секунда", "секунды", "секунд")} на раунд ·{" "}
@@ -130,6 +131,24 @@ function WordGuessSettings({
 							{label}
 						</button>
 					))}
+				</div>
+			</div>
+
+			<div className="settings-group">
+				<span className="settings-label">Ответ</span>
+				<div className="settings-options">
+					<button
+						className={`settings-option${!config.textMode ? " settings-option--active" : ""}`}
+						onClick={() => updateConfig({ textMode: false })}
+					>
+						Голосом
+					</button>
+					<button
+						className={`settings-option${config.textMode ? " settings-option--active" : ""}`}
+						onClick={() => updateConfig({ textMode: true })}
+					>
+						Текстом
+					</button>
 				</div>
 			</div>
 
@@ -188,6 +207,7 @@ function CrocodileSettings({
 				<p className="settings-summary">
 					Режим: {config.mode === "gestures" ? "Жесты" : "Рисование"} · Слова:{" "}
 					{DIFFICULTY_LABELS[String(config.difficulty)]}
+					{config.textMode ? " · Ответ: Текстом" : " · Ответ: Голосом"}
 				</p>
 				<p className="settings-summary">
 					{plural(config.roundTimeSeconds, "секунда", "секунды", "секунд")} на раунд ·{" "}
@@ -240,6 +260,24 @@ function CrocodileSettings({
 							{label}
 						</button>
 					))}
+				</div>
+			</div>
+
+			<div className="settings-group">
+				<span className="settings-label">Ответ</span>
+				<div className="settings-options">
+					<button
+						className={`settings-option${!config.textMode ? " settings-option--active" : ""}`}
+						onClick={() => updateConfig({ textMode: false })}
+					>
+						Голосом
+					</button>
+					<button
+						className={`settings-option${config.textMode ? " settings-option--active" : ""}`}
+						onClick={() => updateConfig({ textMode: true })}
+					>
+						Текстом
+					</button>
 				</div>
 			</div>
 

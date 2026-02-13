@@ -15,6 +15,7 @@ export interface CrocodileConfig {
 	cycles: number;
 	wordLanguage: "ru" | "en";
 	difficulty: CrocodileDifficulty;
+	textMode?: boolean;
 }
 
 export const DEFAULT_CROCODILE_CONFIG: CrocodileConfig = {
@@ -56,6 +57,7 @@ export interface CrocodileState {
 
 	wordLanguage: "ru" | "en";
 	difficulty: CrocodileDifficulty;
+	textMode: boolean;
 }
 
 // --- Player View (sent to each player via getPlayerView) ---
@@ -76,6 +78,8 @@ export interface CrocodilePlayerView {
 	players: CrocodilePlayerState[];
 
 	timerEndsAt: number;
+
+	textMode: boolean;
 }
 
 // --- Actions ---
@@ -97,8 +101,14 @@ export interface CrocodileNextRoundAction extends BaseGameAction {
 	type: "nextRound";
 }
 
+export interface CrocodileGuessAction extends BaseGameAction {
+	type: "guess";
+	word: string;
+}
+
 export type CrocodileAction =
 	| CrocodileBeginRoundAction
 	| CrocodileMarkCorrectAction
 	| CrocodileTimerExpiredAction
-	| CrocodileNextRoundAction;
+	| CrocodileNextRoundAction
+	| CrocodileGuessAction;

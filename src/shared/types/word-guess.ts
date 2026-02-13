@@ -14,6 +14,7 @@ export interface WordGuessConfig {
 	cycles: number;
 	wordLanguage: "ru" | "en";
 	difficulty: WordGuessDifficulty;
+	textMode?: boolean;
 	teams?: Record<string, string[]>; // teamId -> playerIds (teams mode only)
 }
 
@@ -70,6 +71,7 @@ export interface WordGuessState {
 
 	wordLanguage: "ru" | "en";
 	difficulty: WordGuessDifficulty;
+	textMode: boolean;
 }
 
 // --- Player View (sent to each player via getPlayerView) ---
@@ -96,6 +98,8 @@ export interface WordGuessPlayerView {
 
 	roundCorrectCount: number;
 	roundSkipCount: number;
+
+	textMode: boolean;
 }
 
 // --- Actions ---
@@ -121,9 +125,15 @@ export interface WordGuessBeginRoundAction extends BaseGameAction {
 	type: "beginRound";
 }
 
+export interface WordGuessGuessAction extends BaseGameAction {
+	type: "guess";
+	word: string;
+}
+
 export type WordGuessAction =
 	| WordGuessCorrectAction
 	| WordGuessSkipAction
 	| WordGuessTimerExpiredAction
 	| WordGuessNextRoundAction
-	| WordGuessBeginRoundAction;
+	| WordGuessBeginRoundAction
+	| WordGuessGuessAction;

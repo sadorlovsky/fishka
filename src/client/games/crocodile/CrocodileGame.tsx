@@ -58,7 +58,7 @@ export function CrocodileGame() {
 			{state.isShower ? (
 				<ShowerView state={state} dispatch={dispatch} />
 			) : (
-				<GuesserView state={state} />
+				<GuesserView state={state} dispatch={dispatch} />
 			)}
 		</div>
 	);

@@ -61,6 +61,9 @@ function sanitizeGameConfig(
 			const d = config.difficulty;
 			sanitized.difficulty = d === 1 || d === 2 || d === 3 ? d : "all";
 		}
+		if ("textMode" in config) {
+			sanitized.textMode = config.textMode === true;
+		}
 		if ("teams" in config && typeof config.teams === "object" && config.teams !== null) {
 			sanitized.teams = config.teams;
 		}
@@ -84,6 +87,9 @@ function sanitizeGameConfig(
 		if ("difficulty" in config) {
 			const d = config.difficulty;
 			sanitized.difficulty = d === 1 || d === 2 || d === 3 ? d : "all";
+		}
+		if ("textMode" in config) {
+			sanitized.textMode = config.textMode === true;
 		}
 	} else if (gameId === "hangman") {
 		// No config options — rounds are auto-calculated from player count

@@ -43,7 +43,9 @@ export function ExplainerView({ state, dispatch }: ExplainerViewProps) {
 				<span className="counter-skip">Пропущено: {state.roundSkipCount}</span>
 			</div>
 
-			{state.mode === "ffa" && availableGuessers.length > 1 ? (
+			{state.textMode ? (
+				<p className="hint-text">Игроки угадывают текстом</p>
+			) : state.mode === "ffa" && availableGuessers.length > 1 ? (
 				<div className="guesser-picker">
 					<p className="hint-text">Кто угадал?</p>
 					<div className="guesser-buttons">

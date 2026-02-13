@@ -23,18 +23,22 @@ export function ShowerView({ state, dispatch }: ShowerViewProps) {
 
 			<Timer endsAt={state.timerEndsAt} />
 
-			<div className="crocodile-guesser-list">
-				<p className="hint-text">Кто угадал?</p>
-				{guessers.map((p) => (
-					<button
-						key={p.id}
-						className="btn btn-primary crocodile-guesser-btn"
-						onClick={() => dispatch({ type: "markCorrect", guesserId: p.id })}
-					>
-						{p.name}
-					</button>
-				))}
-			</div>
+			{state.textMode ? (
+				<p className="hint-text">Игроки угадывают текстом</p>
+			) : (
+				<div className="crocodile-guesser-list">
+					<p className="hint-text">Кто угадал?</p>
+					{guessers.map((p) => (
+						<button
+							key={p.id}
+							className="btn btn-primary crocodile-guesser-btn"
+							onClick={() => dispatch({ type: "markCorrect", guesserId: p.id })}
+						>
+							{p.name}
+						</button>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }

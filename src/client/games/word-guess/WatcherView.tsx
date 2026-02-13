@@ -1,13 +1,15 @@
 import type { WordGuessPlayerView } from "@/shared/types/word-guess";
+import { TextGuessInput } from "../../components/TextGuessInput";
 import { Timer } from "../../components/Timer";
 import "./WordGuess.css";
 import "./RoundEnd.css";
 
 interface WatcherViewProps {
 	state: WordGuessPlayerView;
+	dispatch?: (action: unknown) => void;
 }
 
-export function WatcherView({ state }: WatcherViewProps) {
+export function WatcherView({ state, dispatch }: WatcherViewProps) {
 	const explainer = state.players.find((p) => p.id === state.currentExplainerId);
 
 	return (
@@ -19,6 +21,10 @@ export function WatcherView({ state }: WatcherViewProps) {
 			</div>
 
 			<p className="hint-text">{explainer?.name ?? "Игрок"} объясняет — слушайте и угадывайте!</p>
+
+			{state.textMode && dispatch && (
+				<TextGuessInput dispatch={dispatch} placeholder="Угадайте слово..." />
+			)}
 
 			<Timer endsAt={state.timerEndsAt} />
 

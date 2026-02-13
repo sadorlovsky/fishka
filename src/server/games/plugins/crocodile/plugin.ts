@@ -8,6 +8,7 @@ import type {
 import { DEFAULT_CROCODILE_CONFIG } from "@/shared/types/crocodile";
 import type { GamePlugin, TimerConfig } from "@/shared/types/game";
 import type { PlayerInfo } from "@/shared/types/room";
+import { wordsMatch } from "@/shared/utils/normalize-word";
 import { getWord } from "../word-guess/words";
 
 function shuffle<T>(arr: T[]): T[] {
@@ -69,6 +70,7 @@ export const crocodilePlugin: GamePlugin<CrocodileState, CrocodileAction, Crocod
 			roundTimeSeconds: merged.roundTimeSeconds,
 			wordLanguage: merged.wordLanguage,
 			difficulty: merged.difficulty,
+			textMode: merged.textMode ?? false,
 		};
 	},
 
@@ -110,6 +112,24 @@ export const crocodilePlugin: GamePlugin<CrocodileState, CrocodileAction, Crocod
 				}
 				return null;
 			}
+			case "guess": {
+				if (state.phase !== "showing") {
+					return "Not in showing phase";
+				}
+				if (!state.textMode) {
+					return "Text mode is not enabled";
+				}
+				if (playerId === state.currentShowerId) {
+					return "Shower cannot guess";
+				}
+				if (!action.word || action.word.trim().length === 0) {
+					return "Guess cannot be empty";
+				}
+				if (state.guessedPlayerIds.includes(playerId)) {
+					return "Already guessed correctly";
+				}
+				return null;
+			}
 			case "nextRound": {
 				if (playerId !== "__server__") {
 					return "Only server can advance round";
@@ -124,7 +144,7 @@ export const crocodilePlugin: GamePlugin<CrocodileState, CrocodileAction, Crocod
 		}
 	},
 
-	reduce(state: CrocodileState, action: CrocodileAction, _playerId: string): CrocodileState | null {
+	reduce(state: CrocodileState, action: CrocodileAction, playerId: string): CrocodileState | null {
 		switch (action.type) {
 			case "beginRound": {
 				return {
@@ -156,6 +176,27 @@ export const crocodilePlugin: GamePlugin<CrocodileState, CrocodileAction, Crocod
 				return {
 					...state,
 					phase: "roundEnd",
+					timerEndsAt: Date.now() + ROUND_END_DELAY_MS,
+				};
+			}
+
+			case "guess": {
+				if (!wordsMatch(action.word, state.currentWord)) {
+					return { ...state };
+				}
+
+				const players = state.players.map((p) => {
+					if (p.id === playerId) {
+						return { ...p, score: p.score + 1 };
+					}
+					return p;
+				});
+
+				return {
+					...state,
+					phase: "roundEnd",
+					guessedPlayerIds: [playerId],
+					players,
 					timerEndsAt: Date.now() + ROUND_END_DELAY_MS,
 				};
 			}
@@ -205,6 +246,7 @@ export const crocodilePlugin: GamePlugin<CrocodileState, CrocodileAction, Crocod
 			guessedPlayerIds: state.guessedPlayerIds,
 			players: state.players,
 			timerEndsAt: state.timerEndsAt,
+			textMode: state.textMode,
 		};
 	},
 
@@ -220,6 +262,7 @@ export const crocodilePlugin: GamePlugin<CrocodileState, CrocodileAction, Crocod
 			guessedPlayerIds: state.guessedPlayerIds,
 			players: state.players,
 			timerEndsAt: state.timerEndsAt,
+			textMode: state.textMode,
 		};
 	},
 

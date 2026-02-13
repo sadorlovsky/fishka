@@ -264,17 +264,20 @@
 	display: flex;
 	gap: 0.5rem;
 	align-items: center;
-}
 
-.hangman-word-guess-input {
-	flex: 1;
-	font-size: 0.875rem;
-}
+	& .input {
+		flex: 1;
+		min-width: 0;
+		width: auto;
+		font-size: 0.875rem;
+	}
 
-.hangman-word-guess-btn {
-	flex-shrink: 0;
-	font-size: 0.8125rem;
-	padding: 0.5rem 0.75rem;
+	& .btn {
+		flex-shrink: 0;
+		width: auto;
+		font-size: 0.8125rem;
+		padding: 0.5rem 0.75rem;
+	}
 }
 
 /* =============================================
