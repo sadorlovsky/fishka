@@ -74,6 +74,11 @@ export interface DrawUndoMessage {
 	type: "drawUndo";
 }
 
+export interface ChatMessage {
+	type: "chatMessage";
+	text: string;
+}
+
 export type ClientMessage =
 	| ConnectMessage
 	| CreateRoomMessage
@@ -89,7 +94,8 @@ export type ClientMessage =
 	| KickPlayerMessage
 	| DrawStrokeMessage
 	| DrawClearMessage
-	| DrawUndoMessage;
+	| DrawUndoMessage
+	| ChatMessage;
 
 // --- Server → Client ---
 
@@ -190,6 +196,14 @@ export interface DrawHistoryMessage {
 	strokes: { x: number; y: number }[][];
 }
 
+export interface ChatBroadcastMessage {
+	type: "chatBroadcast";
+	playerId: string;
+	playerName: string;
+	text: string;
+	timestamp: number;
+}
+
 export interface ErrorMessage {
 	type: "error";
 	code: string;
@@ -219,4 +233,5 @@ export type ServerMessage =
 	| DrawClearMessage
 	| DrawUndoMessage
 	| DrawHistoryMessage
+	| ChatBroadcastMessage
 	| ErrorMessage;

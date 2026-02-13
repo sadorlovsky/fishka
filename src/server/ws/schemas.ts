@@ -100,6 +100,11 @@ const DrawUndoMessage = Schema.Struct({
 	type: Schema.Literal("drawUndo"),
 });
 
+const ChatMessageSchema = Schema.Struct({
+	type: Schema.Literal("chatMessage"),
+	text: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(200)),
+});
+
 const ClientMessageSchema = Schema.Union(
 	ConnectMessage,
 	HeartbeatMessage,
@@ -116,6 +121,7 @@ const ClientMessageSchema = Schema.Union(
 	DrawStrokeMessage,
 	DrawClearMessage,
 	DrawUndoMessage,
+	ChatMessageSchema,
 );
 
 const decode = Schema.decodeUnknownEither(ClientMessageSchema);

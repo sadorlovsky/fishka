@@ -6,6 +6,7 @@ import { playerManager } from "../rooms/player-manager";
 import { roomManager } from "../rooms/room-manager";
 import { parseMessage, send, sendError, type WSData } from "./connection";
 import {
+	chatRateLimiter,
 	connectRateLimiter,
 	drawStrokeRateLimiter,
 	gameActionRateLimiter,
@@ -81,6 +82,9 @@ export function handleMessage(ws: ServerWebSocket<WSData>, raw: string | Buffer)
 				break;
 			case "drawUndo":
 				handleDrawUndo(ws);
+				break;
+			case "chatMessage":
+				handleChatMessage(ws, msg);
 				break;
 			default:
 				sendError(ws, ErrorCode.INVALID_MESSAGE, "Unknown message type");
@@ -696,6 +700,28 @@ function handleDrawUndo(ws: ServerWebSocket<WSData>): void {
 	}
 
 	roomManager.sendToRoomExcept(player.roomCode, player.id, { type: "drawUndo" });
+}
+
+function handleChatMessage(
+	ws: ServerWebSocket<WSData>,
+	msg: Extract<ClientMessage, { type: "chatMessage" }>,
+): void {
+	const player = playerManager.getByWs(ws);
+	if (!player?.roomCode) {
+		return;
+	}
+
+	if (!chatRateLimiter.check(player.id)) {
+		return;
+	}
+
+	roomManager.sendToRoom(player.roomCode, {
+		type: "chatBroadcast",
+		playerId: player.id,
+		playerName: player.name,
+		text: msg.text,
+		timestamp: Date.now(),
+	});
 }
 
 export function handleClose(ws: ServerWebSocket<WSData>, code: number, _reason: string): void {

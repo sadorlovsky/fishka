@@ -69,3 +69,6 @@ export const gameActionRateLimiter = new RateLimiter(10, 1_000, "gameAction");
 
 // 30 drawing strokes per second per player (keyed by playerId)
 export const drawStrokeRateLimiter = new RateLimiter(30, 1_000, "drawStroke");
+
+// 5 chat messages per 3 seconds per player (keyed by playerId)
+export const chatRateLimiter = new RateLimiter(5, 3_000, "chat");

@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { PauseInfo } from "@/shared/types/game";
 import type {
+	ChatBroadcastMessage,
 	ClientMessage,
 	DrawClearMessage,
 	DrawHistoryMessage,
@@ -37,6 +38,7 @@ interface ConnectionState {
 	connect: () => void;
 	ensurePlayer: (name: string, avatarSeed: number, then: () => void) => void;
 	onDrawingEvent: (listener: (event: DrawingEvent) => void) => () => void;
+	onChatMessage: (listener: (msg: ChatBroadcastMessage) => void) => () => void;
 }
 
 const ConnectionCtx = createContext<ConnectionState | null>(null);
@@ -53,6 +55,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
 
 	const awaitingRoomRef = useRef(false);
 	const drawingListenersRef = useRef<Set<(event: DrawingEvent) => void>>(new Set());
+	const chatListenersRef = useRef<Set<(msg: ChatBroadcastMessage) => void>>(new Set());
 
 	const handleMessage = useCallback((msg: ServerMessage) => {
 		switch (msg.type) {
@@ -184,6 +187,12 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
 				}
 				break;
 
+			case "chatBroadcast":
+				for (const listener of chatListenersRef.current) {
+					listener(msg);
+				}
+				break;
+
 			case "error":
 				console.error(`[server error] ${msg.code}: ${msg.message}`);
 				setLastError({ code: msg.code, message: msg.message });
@@ -239,6 +248,13 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
 		};
 	}, []);
 
+	const onChatMessage = useCallback((listener: (msg: ChatBroadcastMessage) => void) => {
+		chatListenersRef.current.add(listener);
+		return () => {
+			chatListenersRef.current.delete(listener);
+		};
+	}, []);
+
 	const ensurePlayer = useCallback(
 		(name: string, avatarSeed: number, then: () => void) => {
 			localStorage.setItem("playerName", name);
@@ -265,6 +281,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
 		connect,
 		ensurePlayer,
 		onDrawingEvent,
+		onChatMessage,
 	};
 
 	return <ConnectionCtx.Provider value={value}>{children}</ConnectionCtx.Provider>;

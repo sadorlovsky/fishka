@@ -117,15 +117,33 @@ export function LobbyScreen() {
 
 	const rosterMode = gameId === "word-guess" ? (config as WordGuessConfig).mode : "ffa";
 
+	const gameMeta = GAME_META[room.settings.gameId];
+
 	return (
 		<div className="screen">
 			<div className="lobby-header">
-				<h2>
-					<span className="game-badge-icon game-badge-icon--sm">
-						{GAME_META[room.settings.gameId]?.emoji}
-					</span>{" "}
-					Лобби
-				</h2>
+				<button type="button" className="lobby-back" onClick={handleLeave} title="Выйти">
+					<svg
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					>
+						<title>Выйти</title>
+						<path d="M19 12H5" />
+						<path d="M12 19l-7-7 7-7" />
+					</svg>
+				</button>
+				<div className="lobby-game-logo">
+					<span className="game-logo game-logo--selected">
+						<span className="game-logo-emoji">{gameMeta?.emoji}</span>
+						<span className="game-logo-label">{gameMeta?.name}</span>
+					</span>
+				</div>
 				<div
 					className={`room-code${codeCopied ? " copied" : ""}`}
 					onClick={copyFromCode}
@@ -182,12 +200,6 @@ export function LobbyScreen() {
 					</div>
 				)}
 			</GameSettings>
-
-			<div className="lobby-actions">
-				<button className="btn btn-secondary" onClick={handleLeave}>
-					Выйти
-				</button>
-			</div>
 		</div>
 	);
 }

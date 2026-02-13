@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ChatOverlay } from "./components/ChatOverlay";
 import { Layout } from "./components/Layout";
 import { ConnectionProvider, useConnection } from "./contexts/ConnectionContext";
 import { GameScreen } from "./screens/GameScreen";
@@ -171,9 +172,19 @@ function Router() {
 		return <HomeScreen />;
 	}
 	if (room.status === "playing" || room.status === "finished") {
-		return <GameScreen />;
+		return (
+			<>
+				<GameScreen />
+				<ChatOverlay />
+			</>
+		);
 	}
-	return <LobbyScreen />;
+	return (
+		<>
+			<LobbyScreen />
+			<ChatOverlay />
+		</>
+	);
 }
 
 export function App() {

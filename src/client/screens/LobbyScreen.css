@@ -8,10 +8,34 @@
 	justify-content: space-between;
 }
 
-.lobby-header h2 {
-	font-weight: 800;
-	font-size: 1.375rem;
-	letter-spacing: -0.01em;
+.lobby-back {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.25rem;
+	height: 2.25rem;
+	border-radius: var(--radius-sm);
+	border: 1.5px solid var(--color-border);
+	background: var(--color-surface);
+	color: var(--color-text-muted);
+	cursor: pointer;
+	transition:
+		background 0.15s,
+		color 0.15s,
+		border-color 0.15s;
+	flex-shrink: 0;
+
+	&:hover {
+		background: var(--color-surface-hover);
+		color: var(--color-text);
+		border-color: var(--color-text-muted);
+	}
+}
+
+.lobby-game-logo {
+	position: absolute;
+	left: 50%;
+	transform: translateX(-50%);
 }
 
 .room-code {
@@ -55,14 +79,6 @@
 	font-weight: 700;
 	letter-spacing: 0.15em;
 	color: var(--color-primary);
-}
-
-.lobby-actions {
-	display: flex;
-	flex-direction: column;
-	gap: 0.75rem;
-	margin-top: auto;
-	padding-bottom: 1rem;
 }
 
 /* =============================================
